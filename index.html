@@ -154,7 +154,6 @@
     let currentHeight = 30;
     let groundHeight = 0;
 
-    let osmBuildings = null;
     let customTileset = null;
 
     let gpsStarted = false;
@@ -174,41 +173,7 @@
     let calibratedAlpha = null;
     let calibratedBeta = null;
 
-    function updateOffsetLabels() {
-        headingVal.textContent = headingOffsetEl.value;
-        pitchVal.textContent = pitchOffsetEl.value;
-        heightVal.textContent = heightOffsetEl.value;
-        fovVal.textContent = fovRangeEl.value;
-    }
-
-    headingOffsetEl.addEventListener("input", () => {
-        updateOffsetLabels();
-        if (currentLon != null && currentLat != null) {
-            applyCameraPose();
-        }
-    });
-
-    pitchOffsetEl.addEventListener("input", () => {
-        updateOffsetLabels();
-        if (currentLon != null && currentLat != null) {
-            applyCameraPose();
-        }
-    });
-
-    heightOffsetEl.addEventListener("input", () => {
-        updateOffsetLabels();
-        if (currentLon != null && currentLat != null) {
-            applyCameraPose();
-        }
-    });
-
-    fovRangeEl.addEventListener("input", () => {
-        updateOffsetLabels();
-        viewer.camera.frustum.fov = Cesium.Math.toRadians(Number(fovRangeEl.value));
-        viewer.scene.requestRender();
-    });
-
-    updateOffsetLabels();
+    const eyeHeightMeters = 1.6;
 
     const viewer = new Cesium.Viewer("cesiumContainer", {
         animation: false,
@@ -257,6 +222,13 @@
         return d;
     }
 
+    function updateOffsetLabels() {
+        headingVal.textContent = headingOffsetEl.value;
+        pitchVal.textContent = pitchOffsetEl.value;
+        heightVal.textContent = heightOffsetEl.value;
+        fovVal.textContent = fovRangeEl.value;
+    }
+
     function updateCoordText() {
         if (currentLon == null || currentLat == null) {
             coordTextEl.textContent = "현재 좌표: 아직 없음";
@@ -298,21 +270,21 @@
         const pitchOffset = Number(pitchOffsetEl.value) || 0;
         const heightOffset = Number(heightOffsetEl.value) || 0;
 
-        const baseAlpha = calibratedAlpha == null ? 0 : calibratedAlpha;
-        const baseBeta = calibratedBeta == null ? 0 : calibratedBeta;
+        const alphaBase = calibratedAlpha ?? 0;
+        const betaBase = calibratedBeta ?? 0;
 
-        latestHeadingDeg = normalizeDegrees(360 - (lastAlpha - baseAlpha) + headingOffset);
+        // 예전처럼 바로 반응하는 방식
+        const relativeAlpha = lastAlpha - alphaBase;
+        const relativeBeta = lastBeta - betaBase;
 
-        // 예전 코드 감각 유지 + 정면 기준 보정 추가
-        const relativeBeta = lastBeta - baseBeta;
-        latestPitchDeg = Cesium.Math.clamp(-(relativeBeta - 90) + pitchOffset - 90, -89, 89);
-
+        latestHeadingDeg = normalizeDegrees(360 - relativeAlpha + headingOffset);
+        latestPitchDeg = Cesium.Math.clamp(-(relativeBeta - 90) + pitchOffset, -89, 89);
         latestRollDeg = lastGamma * 0.2;
 
         const position = Cesium.Cartesian3.fromDegrees(
             currentLon,
             currentLat,
-            groundHeight + 1.6 + heightOffset
+            groundHeight + eyeHeightMeters + heightOffset
         );
 
         viewer.camera.setView({
@@ -335,7 +307,7 @@
         const destination = Cesium.Cartesian3.fromDegrees(
             currentLon,
             currentLat,
-            groundHeight + 1.6 + heightOffset
+            groundHeight + eyeHeightMeters + heightOffset
         );
 
         viewer.camera.setView({
@@ -346,20 +318,6 @@
                 roll: 0
             }
         });
-    }
-
-    async function loadOsmBuildings() {
-        try {
-            if (osmBuildings) return;
-
-            statusEl.textContent = "OSM 건물 로드중...";
-            osmBuildings = await Cesium.createOsmBuildingsAsync();
-            viewer.scene.primitives.add(osmBuildings);
-            statusEl.textContent = "OSM 건물 로드 완료";
-        } catch (e) {
-            console.error(e);
-            statusEl.textContent = `OSM 건물 로드 실패: ${e.message}`;
-        }
     }
 
     async function loadCustomTileset() {
@@ -472,11 +430,14 @@
     }
 
     function handleDeviceOrientation(event) {
-        if (currentLon == null || currentLat == null) return;
-
         lastAlpha = event.alpha ?? 0;
         lastBeta = event.beta ?? 0;
         lastGamma = event.gamma ?? 0;
+
+        if (currentLon == null || currentLat == null) {
+            updateSensorText();
+            return;
+        }
 
         applyCameraPose();
     }
@@ -499,10 +460,6 @@
         orientationStarted = true;
     }
 
-    calibrateBtn.addEventListener("click", () => {
-        calibrateForwardView();
-    });
-
     function uiBtn() {
         const box = document.getElementById("ui_box");
         const btn = document.getElementById("uiBtnId");
@@ -516,11 +473,38 @@
         }
     }
 
+    headingOffsetEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        applyCameraPose();
+    });
+
+    pitchOffsetEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        applyCameraPose();
+    });
+
+    heightOffsetEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        applyCameraPose();
+    });
+
+    fovRangeEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        viewer.camera.frustum.fov = Cesium.Math.toRadians(Number(fovRangeEl.value));
+        viewer.scene.requestRender();
+    });
+
+    calibrateBtn.addEventListener("click", () => {
+        calibrateForwardView();
+    });
+
     startBtn.addEventListener("click", async () => {
         try {
             statusEl.textContent = "권한 요청중...";
 
             await startCamera();
+            await requestiOSMotionPermissionIfNeeded();
+            startOrientationTracking();
 
             statusEl.textContent = "현재 위치 가져오는 중...";
             startGeolocation();
@@ -528,19 +512,18 @@
 
             await updateGroundHeight();
             await loadCustomTileset();
-            await requestiOSMotionPermissionIfNeeded();
-            startOrientationTracking();
 
             updateCoordText();
             moveCameraToCurrentPositionOnly();
 
-            statusEl.textContent = "카메라 / 현재위치 / 센서 / 건물 / 타일셋 시작됨";
+            statusEl.textContent = "카메라 / 현재위치 / 센서 / 타일셋 시작됨";
         } catch (e) {
             console.error(e);
             statusEl.textContent = `초기화 실패: ${e.message}`;
         }
     });
+
+    updateOffsetLabels();
 </script>
 </body>
 </html>
-
