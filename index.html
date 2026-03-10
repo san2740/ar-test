@@ -366,7 +366,7 @@
         try {
             if (customTileset) return;
 
-            statusEl.textContent = "서울 타일셋 로드중...";
+            statusEl.textContent = "타일셋 로드중...";
             customTileset = await Cesium.Cesium3DTileset.fromUrl(
                 "https://seoul.gaia3d.com:10107/tileset/tn_buld_tiles_merge1/tileset.json",
                 {
@@ -380,10 +380,10 @@
             );
 
             viewer.scene.primitives.add(customTileset);
-            statusEl.textContent = "서울 타일셋 로드 완료";
+            statusEl.textContent = "타일셋 로드 완료";
         } catch (e) {
             console.error(e);
-            statusEl.textContent = `서울 타일셋 로드 실패: ${e.message}`;
+            statusEl.textContent = `타일셋 로드 실패: ${e.message}`;
         }
     }
 
@@ -527,7 +527,6 @@
             await waitForFirstGpsFix();
 
             await updateGroundHeight();
-            await loadOsmBuildings();
             await loadCustomTileset();
             await requestiOSMotionPermissionIfNeeded();
             startOrientationTracking();
@@ -544,3 +543,4 @@
 </script>
 </body>
 </html>
+
