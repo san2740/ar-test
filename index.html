@@ -513,12 +513,39 @@
         statusEl.textContent = "정면 기준 보정 완료";
     }
 
-    function handleDeviceOrientation(event) {
-        lastAlpha = event.alpha ?? 0;
-        lastBeta = event.beta ?? 0;
-        lastGamma = event.gamma ?? 0;
+    let latestHeadingDeg = 0;
+    let latestPitchDeg = -10;
+    let latestRollDeg = 0;
 
-        recalculateOrientationTargets();
+    function handleDeviceOrientation(event) {
+        if (currentLon == null || currentLat == null) return;
+
+        const alpha = event.alpha ?? 0;
+        const beta = event.beta ?? 0;
+        const gamma = event.gamma ?? 0;
+
+        const headingOffset = Number(headingOffsetEl.value) || 0;
+        const pitchOffset = Number(pitchOffsetEl.value) || 0;
+        const heightOffset = Number(heightOffsetEl.value) || 0;
+
+        latestHeadingDeg = normalizeDegrees(360 - alpha + headingOffset);
+        latestPitchDeg = Cesium.Math.clamp(-(beta - 90) + pitchOffset, -89, 89);
+        latestRollDeg = gamma * 0.2;
+
+        const position = Cesium.Cartesian3.fromDegrees(
+            currentLon,
+            currentLat,
+            (currentHeight || 30) + heightOffset
+        );
+
+        viewer.camera.setView({
+            destination: position,
+            orientation: {
+                heading: Cesium.Math.toRadians(latestHeadingDeg),
+                pitch: Cesium.Math.toRadians(latestPitchDeg),
+                roll: Cesium.Math.toRadians(latestRollDeg)
+            }
+        });
     }
 
     let lastCameraUpdateTime = 0;
