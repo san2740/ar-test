@@ -98,8 +98,6 @@
 
         <button id="startBtn">카메라 / 위치 / 센서 시작</button>
         <button id="calibrateBtn">정면 기준 보정</button>
-        <button id="placeTestBoxBtn">정면 20m 테스트 박스 생성</button>
-        <button id="removeTestBoxBtn">테스트 박스 삭제</button>
 
         <div class="row">
             <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
@@ -129,7 +127,7 @@
 </div>
 
 <script>
-    Cesium.Ion.defaultAccessToken = "YOUR_CESIUM_ION_TOKEN";
+    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
 
     const statusEl = document.getElementById("status");
     const coordTextEl = document.getElementById("coordText");
@@ -147,11 +145,6 @@
     const pitchVal = document.getElementById("pitchVal");
     const heightVal = document.getElementById("heightVal");
     const fovVal = document.getElementById("fovVal");
-
-    const placeTestBoxBtn = document.getElementById("placeTestBoxBtn");
-    const removeTestBoxBtn = document.getElementById("removeTestBoxBtn");
-
-    let testBoxEntity = null;
 
     let currentLon = null;
     let currentLat = null;
@@ -172,37 +165,13 @@
     let lastBeta = 0;
     let lastGamma = 0;
 
-    // 정면 기준 보정값
     let calibratedAlpha = null;
     let calibratedBeta = null;
 
-    // GPS 이동 디버깅용
     let prevLon = null;
     let prevLat = null;
 
-    // 눈높이 고정
     const eyeHeightMeters = 1.6;
-
-    function getForwardOffsetMeters(distanceMeters, headingDeg) {
-        const headingRad = Cesium.Math.toRadians(headingDeg);
-        const east = Math.sin(headingRad) * distanceMeters;
-        const north = Math.cos(headingRad) * distanceMeters;
-        return { east, north };
-    }
-
-    function offsetLonLatByMeters(lon, lat, eastMeters, northMeters) {
-        const latRad = Cesium.Math.toRadians(lat);
-        const metersPerDegLat = 111320;
-        const metersPerDegLon = 111320 * Math.cos(latRad);
-
-        const dLat = northMeters / metersPerDegLat;
-        const dLon = eastMeters / metersPerDegLon;
-
-        return {
-            lon: lon + dLon,
-            lat: lat + dLat
-        };
-    }
 
     function distanceMeters(lat1, lon1, lat2, lon2) {
         const R = 6371000;
@@ -217,52 +186,6 @@
 
         return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
-
-    function placeTestBox(distanceMeters = 20) {
-        if (currentLon == null || currentLat == null) {
-            statusEl.textContent = "현재 위치 없음";
-            return;
-        }
-
-        if (testBoxEntity) {
-            viewer.entities.remove(testBoxEntity);
-        }
-
-        const { east, north } = getForwardOffsetMeters(distanceMeters, latestHeadingDeg);
-        const target = offsetLonLatByMeters(currentLon, currentLat, east, north);
-        const height = eyeHeightMeters + 3;
-
-        testBoxEntity = viewer.entities.add({
-            position: Cesium.Cartesian3.fromDegrees(target.lon, target.lat, height),
-            box: {
-                dimensions: new Cesium.Cartesian3(4, 4, 4),
-                material: Cesium.Color.RED.withAlpha(0.8),
-                outline: true,
-                outlineColor: Cesium.Color.WHITE
-            },
-            label: {
-                text: "TEST 20m",
-                font: "16px sans-serif",
-                pixelOffset: new Cesium.Cartesian2(0, -40),
-                fillColor: Cesium.Color.WHITE,
-                showBackground: true,
-                backgroundColor: Cesium.Color.BLACK.withAlpha(0.6)
-            }
-        });
-
-        statusEl.textContent = "정면 20m 테스트 박스 생성";
-    }
-
-    function removeTestBox() {
-        if (testBoxEntity) {
-            viewer.entities.remove(testBoxEntity);
-            testBoxEntity = null;
-            statusEl.textContent = "테스트 박스 삭제";
-        }
-    }
-
-    placeTestBoxBtn.addEventListener("click", () => placeTestBox(20));
-    removeTestBoxBtn.addEventListener("click", () => removeTestBox());
 
     function updateOffsetLabels() {
         headingVal.textContent = headingOffsetEl.value;
@@ -322,7 +245,6 @@
     viewer.cesiumWidget.creditContainer.style.display = "none";
     viewer.scene.requestRenderMode = false;
 
-    // 확대 느낌
     viewer.camera.frustum.fov = Cesium.Math.toRadians(18);
     viewer.camera.frustum.near = 0.1;
     viewer.camera.frustum.far = 5000.0;
@@ -483,14 +405,11 @@
         if (calibratedAlpha == null) calibratedAlpha = alpha;
         if (calibratedBeta == null) calibratedBeta = beta;
 
-        // heading
         latestHeadingDeg = normalizeDegrees(360 - alpha + headingOffset);
 
-        // 폰을 정면으로 세운 순간을 pitch 0 기준으로 잡음
         const pitchFromCalibration = calibratedBeta - beta;
         latestPitchDeg = Cesium.Math.clamp(pitchFromCalibration + pitchOffset, -89, 89);
 
-        // 처음엔 roll 흔들림 줄이기 위해 0 고정
         latestRollDeg = 0;
 
         updateSensorText();
