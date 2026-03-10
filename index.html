@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Cesium Camera AR Overlay</title>
+    <title>Cesium Camera AR</title>
 
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet"/>
@@ -521,9 +521,14 @@
         if (calibratedAlpha == null) calibratedAlpha = lastAlpha;
         if (calibratedBeta == null) calibratedBeta = lastBeta;
 
-        targetHeadingDeg = normalizeDegrees(360 - lastAlpha + headingOffset);
+        let rawHeading = lastAlpha;
+        if (typeof window.lastCompassHeading === "number" && Number.isFinite(window.lastCompassHeading)) {
+            rawHeading = window.lastCompassHeading;
+        }
 
-        const pitchFromCalibration = lastBeta - calibratedBeta;
+        targetHeadingDeg = normalizeDegrees(360 - rawHeading + headingOffset);
+
+        const pitchFromCalibration = calibratedBeta - lastBeta;
         targetPitchDeg = Cesium.Math.clamp(pitchFromCalibration + pitchOffset, -89, 89);
 
         targetRollDeg = 0;
@@ -535,6 +540,10 @@
         const alpha = event.alpha ?? 0;
         const beta = event.beta ?? 0;
         const gamma = event.gamma ?? 0;
+
+        if (typeof event.webkitCompassHeading === "number" && Number.isFinite(event.webkitCompassHeading)) {
+            window.lastCompassHeading = event.webkitCompassHeading;
+        }
 
         lastAlpha = alpha;
         lastBeta = beta;
