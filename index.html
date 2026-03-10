@@ -272,11 +272,15 @@
 
     headingOffsetEl.addEventListener("input", () => {
         updateOffsetLabels();
+        recalculateOrientationTargets();
+        updateCameraPose();
         viewer.scene.requestRender();
     });
 
     pitchOffsetEl.addEventListener("input", () => {
         updateOffsetLabels();
+        recalculateOrientationTargets();
+        updateCameraPose();
         viewer.scene.requestRender();
     });
 
@@ -505,8 +509,24 @@
     function calibrateForwardView() {
         calibratedAlpha = lastAlpha;
         calibratedBeta = lastBeta;
-        targetRollDeg = 0;
+        recalculateOrientationTargets();
+        updateCameraPose();
         statusEl.textContent = "정면 기준 보정 완료";
+    }
+
+    function recalculateOrientationTargets() {
+        const headingOffset = Number(headingOffsetEl.value) || 0;
+        const pitchOffset = Number(pitchOffsetEl.value) || 0;
+
+        if (calibratedAlpha == null) calibratedAlpha = lastAlpha;
+        if (calibratedBeta == null) calibratedBeta = lastBeta;
+
+        targetHeadingDeg = normalizeDegrees(360 - lastAlpha + headingOffset);
+
+        const pitchFromCalibration = lastBeta - calibratedBeta;
+        targetPitchDeg = Cesium.Math.clamp(pitchFromCalibration + pitchOffset, -89, 89);
+
+        targetRollDeg = 0;
     }
 
     function handleDeviceOrientation(event) {
@@ -520,18 +540,7 @@
         lastBeta = beta;
         lastGamma = gamma;
 
-        const headingOffset = Number(headingOffsetEl.value) || 0;
-        const pitchOffset = Number(pitchOffsetEl.value) || 0;
-
-        if (calibratedAlpha == null) calibratedAlpha = alpha;
-        if (calibratedBeta == null) calibratedBeta = beta;
-
-        targetHeadingDeg = normalizeDegrees(360 - alpha + headingOffset);
-
-        const pitchFromCalibration = beta - calibratedBeta;
-        targetPitchDeg = Cesium.Math.clamp(pitchFromCalibration + pitchOffset, -89, 89);
-
-        targetRollDeg = 0;
+        recalculateOrientationTargets();
     }
 
     let lastCameraUpdateTime = 0;
