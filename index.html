@@ -18,7 +18,7 @@
             overflow: hidden;
             width: 100%;
             height: 100%;
-            background: black;
+            background: transparent;
             font-family: sans-serif;
         }
 
@@ -36,6 +36,11 @@
             position: fixed;
             inset: 0;
             z-index: 1;
+            background: transparent !important;
+        }
+
+        #cesiumContainer canvas {
+            background: transparent !important;
         }
 
         #ui {
@@ -165,6 +170,11 @@
         fullscreenButton: false,
         selectionIndicator: false,
         shouldAnimate: true,
+        contextOptions: {
+            webgl: {
+                alpha: true
+            }
+        }
     });
 
     viewer.scene.backgroundColor = Cesium.Color.TRANSPARENT;
