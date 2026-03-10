@@ -184,7 +184,7 @@
 
     const eyeHeightMeters = 1.6;
     const TERRAIN_UPDATE_DISTANCE = 5.0;
-    const SENSOR_SMOOTHING = 0.18;
+    const SENSOR_SMOOTHING = 0.30;
 
     const viewer = new Cesium.Viewer("cesiumContainer", {
         animation: false,
@@ -221,6 +221,14 @@
     viewer.camera.frustum.fov = Cesium.Math.toRadians(18);
     viewer.camera.frustum.near = 0.1;
     viewer.camera.frustum.far = 5000.0;
+
+    const ssc = viewer.scene.screenSpaceCameraController;
+    ssc.enableRotate = false;
+    ssc.enableTranslate = false;
+    ssc.enableZoom = false;
+    ssc.enableTilt = false;
+    ssc.enableLook = false;
+    ssc.enableInputs = false;
 
     function normalizeDegrees(deg) {
         let d = deg % 360;
@@ -329,19 +337,35 @@
         }
     }
 
+    let cachedDestination = null;
+    let lastCameraLon = null;
+    let lastCameraLat = null;
+    let lastCameraHeight = null;
+
     function updateCameraPose() {
         if (currentLon == null || currentLat == null) return;
 
         const heightOffset = Number(heightOffsetEl.value) || 0;
+        const cameraHeight = groundHeight + eyeHeightMeters + heightOffset;
 
-        const destination = Cesium.Cartesian3.fromDegrees(
-            currentLon,
-            currentLat,
-            groundHeight + eyeHeightMeters + heightOffset
-        );
+        const positionChanged =
+            lastCameraLon !== currentLon ||
+            lastCameraLat !== currentLat ||
+            lastCameraHeight !== cameraHeight;
+
+        if (positionChanged || !cachedDestination) {
+            cachedDestination = Cesium.Cartesian3.fromDegrees(
+                currentLon,
+                currentLat,
+                cameraHeight
+            );
+            lastCameraLon = currentLon;
+            lastCameraLat = currentLat;
+            lastCameraHeight = cameraHeight;
+        }
 
         viewer.camera.setView({
-            destination,
+            destination: cachedDestination,
             orientation: {
                 heading: Cesium.Math.toRadians(latestHeadingDeg),
                 pitch: Cesium.Math.toRadians(latestPitchDeg),
@@ -386,11 +410,7 @@
 
             viewer.scene.primitives.add(customTileset);
 
-            customTileset.tileLoad.addEventListener(() => {
-                viewer.scene.requestRender();
-            });
-
-            statusEl.textContent = "서울 타일셋 로드 완료";
+            statusEl.textContent = "타일셋 로드 완료";
             viewer.scene.requestRender();
         } catch (e) {
             console.error(e);
@@ -514,14 +534,21 @@
         targetRollDeg = 0;
     }
 
+    let lastCameraUpdateTime = 0;
+    const CAMERA_UPDATE_INTERVAL = 1000 / 30;
+
     function startRenderLoop() {
-        function tick() {
+        function tick(now) {
             latestHeadingDeg = smoothAngle(latestHeadingDeg, targetHeadingDeg, SENSOR_SMOOTHING);
             latestPitchDeg = smoothValue(latestPitchDeg, targetPitchDeg, SENSOR_SMOOTHING);
             latestRollDeg = smoothValue(latestRollDeg, targetRollDeg, SENSOR_SMOOTHING);
 
             updateSensorText();
-            updateCameraPose();
+
+            if (now - lastCameraUpdateTime >= CAMERA_UPDATE_INTERVAL) {
+                updateCameraPose();
+                lastCameraUpdateTime = now;
+            }
 
             requestAnimationFrame(tick);
         }
