@@ -97,7 +97,7 @@
         <div id="status">초기화 대기중...</div>
 
         <button id="startBtn">카메라 / 위치 / 센서 시작</button>
-        <button id="calibrateBtn">정면 기준 보정</button>
+        <button id="calibrateBtn">정면 기준 보정 1.0</button>
 
         <div class="row">
             <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
@@ -542,7 +542,28 @@
         lastBeta = beta;
         lastGamma = gamma;
 
-        recalculateOrientationTargets();
+        const headingOffset = Number(headingOffsetEl.value) || 0;
+        const pitchOffset = Number(pitchOffsetEl.value) || 0;
+        const heightOffset = Number(heightOffsetEl.value) || 0;
+
+        latestHeadingDeg = normalizeDegrees(360 - alpha + headingOffset);
+        latestPitchDeg = Cesium.Math.clamp(-(beta - 90) + pitchOffset, -89, 89);
+        latestRollDeg = gamma * 0.2;
+
+        const position = Cesium.Cartesian3.fromDegrees(
+            currentLon,
+            currentLat,
+            (currentHeight || 30) + heightOffset
+        );
+
+        viewer.camera.setView({
+            destination: position,
+            orientation: {
+                heading: Cesium.Math.toRadians(latestHeadingDeg),
+                pitch: Cesium.Math.toRadians(latestPitchDeg),
+                roll: Cesium.Math.toRadians(latestRollDeg)
+            }
+        });
     }
 
     let lastCameraUpdateTime = 0;
