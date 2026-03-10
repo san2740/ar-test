@@ -95,29 +95,33 @@
 <div id="cesiumContainer"></div>
 
 <div id="ui">
-    <div><b>Cesium AR Overlay Demo</b></div>
-    <div id="status">초기화 대기중...</div>
+    <div id="ui_box" style="display: block">
+        <div><b>Cesium AR Overlay Demo</b></div>
+        <div id="status">초기화 대기중...</div>
 
-    <button id="startBtn">카메라 / 위치 / 센서 시작</button>
+        <button id="startBtn">카메라 / 위치 / 센서 시작</button>
 
-    <div class="row">
-        <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
-        <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
+        <div class="row">
+            <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
+            <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
+        </div>
+
+        <div class="row">
+            <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
+            <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
+        </div>
+
+        <div class="row">
+            <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
+            <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
+        </div>
+
+        <div class="small" id="coordText">
+            현재 좌표: 아직 없음
+        </div>
     </div>
 
-    <div class="row">
-        <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
-        <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
-    </div>
-
-    <div class="row">
-        <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
-        <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
-    </div>
-
-    <div class="small" id="coordText">
-        현재 좌표: 아직 없음
-    </div>
+    <button id="uiBtnId" onclick="uiBtn()">닫기</button>
 </div>
 
 <script>
@@ -361,6 +365,20 @@
         if (orientationStarted) return;
         window.addEventListener("deviceorientation", handleDeviceOrientation, true);
         orientationStarted = true;
+    }
+
+    function uiBtn() {
+        let id = document.getElementById("ui_box");
+        let btnId = document.getElementById("uiBtnId");
+
+        if(id.style.display === "none") {
+            id.style.display = "block";
+            btnId.innerText = "닫기";
+        }else {
+            id.style.display = "none";
+            btnId.innerText = "열기";
+        }
+
     }
 
     startBtn.addEventListener("click", async () => {
