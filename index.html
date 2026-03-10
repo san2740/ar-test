@@ -522,9 +522,6 @@
         if (calibratedBeta == null) calibratedBeta = lastBeta;
 
         let rawHeading = lastAlpha;
-        if (typeof window.lastCompassHeading === "number" && Number.isFinite(window.lastCompassHeading)) {
-            rawHeading = window.lastCompassHeading;
-        }
 
         targetHeadingDeg = normalizeDegrees(360 - rawHeading + headingOffset);
 
@@ -540,10 +537,6 @@
         const alpha = event.alpha ?? 0;
         const beta = event.beta ?? 0;
         const gamma = event.gamma ?? 0;
-
-        if (typeof event.webkitCompassHeading === "number" && Number.isFinite(event.webkitCompassHeading)) {
-            window.lastCompassHeading = event.webkitCompassHeading;
-        }
 
         lastAlpha = alpha;
         lastBeta = beta;
