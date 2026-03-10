@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Cesium Camera AR Overlay</title>
+
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
+    <link
+            href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css"
+            rel="stylesheet"
+    />
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            background: black;
+            font-family: sans-serif;
+        }
+
+        #cameraVideo {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: black;
+            z-index: 0;
+        }
+
+        #cesiumContainer {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+        }
+
+        #ui {
+            position: fixed;
+            left: 12px;
+            top: 12px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.55);
+            color: white;
+            padding: 12px;
+            border-radius: 10px;
+            width: 280px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        #ui button {
+            width: 100%;
+            margin-top: 6px;
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            background: #2d7ef7;
+            color: white;
+            font-size: 14px;
+        }
+
+        #ui input[type="range"] {
+            width: 100%;
+        }
+
+        .row {
+            margin-top: 8px;
+        }
+
+        .label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px;
+        }
+    </style>
+</head>
+<body>
+<video id="cameraVideo" autoplay playsinline muted></video>
+<div id="cesiumContainer"></div>
+
+<div id="ui">
+    <div><b>Cesium AR Overlay Demo</b></div>
+    <div id="status">초기화 대기중...</div>
+
+    <button id="startBtn">카메라 / 위치 / 센서 시작</button>
+
+    <div class="row">
+        <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
+        <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
+    </div>
+
+    <div class="row">
+        <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
+        <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
+    </div>
+
+    <div class="row">
+        <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
+        <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
+    </div>
+</div>
+
+<script>
+    // =========================
+    // 0. Cesium Ion Token 설정
+    // =========================
+    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
+
+    const statusEl = document.getElementById("status");
+    const videoEl = document.getElementById("cameraVideo");
+    const startBtn = document.getElementById("startBtn");
+
+    const headingOffsetEl = document.getElementById("headingOffset");
+    const pitchOffsetEl = document.getElementById("pitchOffset");
+    const heightOffsetEl = document.getElementById("heightOffset");
+
+    const headingVal = document.getElementById("headingVal");
+    const pitchVal = document.getElementById("pitchVal");
+    const heightVal = document.getElementById("heightVal");
+
+    function updateOffsetLabels() {
+        headingVal.textContent = headingOffsetEl.value;
+        pitchVal.textContent = pitchOffsetEl.value;
+        heightVal.textContent = heightOffsetEl.value;
+    }
+
+    headingOffsetEl.addEventListener("input", updateOffsetLabels);
+    pitchOffsetEl.addEventListener("input", updateOffsetLabels);
+    heightOffsetEl.addEventListener("input", updateOffsetLabels);
+    updateOffsetLabels();
+
+    // =========================
+    // 1. Viewer 생성
+    // =========================
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+        animation: false,
+        timeline: false,
+        baseLayerPicker: false,
+        geocoder: false,
+        homeButton: false,
+        infoBox: false,
+        sceneModePicker: false,
+        navigationHelpButton: false,
+        fullscreenButton: false,
+        selectionIndicator: false,
+        shouldAnimate: true,
+    });
+
+    viewer.scene.backgroundColor = Cesium.Color.TRANSPARENT;
+    viewer.scene.skyBox.show = false;
+    viewer.scene.skyAtmosphere.show = false;
+    viewer.scene.globe.baseColor = Cesium.Color.TRANSPARENT;
+    viewer.scene.globe.showGroundAtmosphere = false;
+
+    // 지형/지도 숨기고 오브젝트만 보이게 하고 싶으면 아래 사용
+    // viewer.scene.globe.show = false;
+
+    // UI 제거
+    viewer.cesiumWidget.creditContainer.style.display = "none";
+
+    // =========================
+    // 2. 테스트용 오브젝트 추가
+    // =========================
+    let currentLon = 127.0276; // 기본값(강남역 근처 예시)
+    let currentLat = 37.4979;
+    let currentHeight = 60;
+
+    // 사용자의 현재 위치 기준 전방 30m 정도에 박스 하나 두기
+    let demoEntity = null;
+
+    function addDemoEntity(lon, lat, height) {
+        if (demoEntity) {
+            viewer.entities.remove(demoEntity);
+        }
+
+        // 임시로 현재 위치 기준 약간 북쪽으로 배치
+        demoEntity = viewer.entities.add({
+            name: "AR Demo Box",
+            position: Cesium.Cartesian3.fromDegrees(lon, lat + 0.00015, height + 5),
+            box: {
+                dimensions: new Cesium.Cartesian3(10, 10, 10),
+                material: Cesium.Color.RED.withAlpha(0.7),
+                outline: true,
+                outlineColor: Cesium.Color.WHITE
+            }
+        });
+    }
+
+    addDemoEntity(currentLon, currentLat, currentHeight);
+
+    // =========================
+    // 3. 3D Tileset 예시
+    // =========================
+    let tileset = null;
+
+    async function addTilesetExample() {
+        try {
+            // 본인 타일셋 asset id로 변경
+            // 예: const assetId = 123456;
+            const assetId = null;
+
+            if (!assetId) return;
+
+            tileset = await Cesium.Cesium3DTileset.fromIonAssetId(assetId);
+            viewer.scene.primitives.add(tileset);
+
+            await tileset.readyPromise;
+            statusEl.textContent = "3D Tileset 로드 완료";
+        } catch (e) {
+            console.error(e);
+            statusEl.textContent = "3D Tileset 로드 실패";
+        }
+    }
+
+    // 필요하면 활성화
+    // addTilesetExample();
+
+    // =========================
+    // 4. 카메라 시작
+    // =========================
+    async function startCamera() {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: "environment" }
+            },
+            audio: false
+        });
+
+        videoEl.srcObject = stream;
+        await videoEl.play();
+    }
+
+    // =========================
+    // 5. GPS 추적
+    // =========================
+    let watchId = null;
+
+    function startGeolocation() {
+        if (!navigator.geolocation) {
+            throw new Error("이 브라우저는 geolocation을 지원하지 않습니다.");
+        }
+
+        watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                currentLon = pos.coords.longitude;
+                currentLat = pos.coords.latitude;
+                currentHeight = pos.coords.altitude ?? 30;
+
+                const heightOffset = Number(heightOffsetEl.value) || 0;
+                const camHeight = currentHeight + heightOffset;
+
+                // 위치 갱신 시 테스트 박스도 같이 갱신
+                addDemoEntity(currentLon, currentLat, camHeight);
+
+                statusEl.textContent =
+                    `GPS: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}, h=${camHeight.toFixed(1)}`;
+            },
+            (err) => {
+                console.error(err);
+                statusEl.textContent = "GPS 권한 또는 위치 획득 실패";
+            },
+            {
+                enableHighAccuracy: true,
+                maximumAge: 1000,
+                timeout: 10000
+            }
+        );
+    }
+
+    // =========================
+    // 6. 디바이스 방향값 -> Cesium 카메라 회전
+    // =========================
+    let latestHeadingDeg = 0;
+    let latestPitchDeg = -10;
+    let latestRollDeg = 0;
+
+    function normalizeDegrees(deg) {
+        let d = deg % 360;
+        if (d < 0) d += 360;
+        return d;
+    }
+
+    // 안드로이드/일반 브라우저용
+    function handleDeviceOrientation(event) {
+        // alpha: z축 회전(나침반 비슷), beta: x축, gamma: y축
+        // 브라우저마다 축 해석이 약간 달라서 현장 보정이 필요함
+        const alpha = event.alpha ?? 0;
+        const beta = event.beta ?? 0;
+        const gamma = event.gamma ?? 0;
+
+        const headingOffset = Number(headingOffsetEl.value) || 0;
+        const pitchOffset = Number(pitchOffsetEl.value) || 0;
+        const heightOffset = Number(heightOffsetEl.value) || 0;
+
+        // 간단 근사
+        latestHeadingDeg = normalizeDegrees(360 - alpha + headingOffset);
+        latestPitchDeg = Cesium.Math.clamp(-(beta - 90) + pitchOffset, -89, 89);
+        latestRollDeg = gamma * 0.2;
+
+        const position = Cesium.Cartesian3.fromDegrees(
+            currentLon,
+            currentLat,
+            (currentHeight || 30) + heightOffset
+        );
+
+        viewer.camera.setView({
+            destination: position,
+            orientation: {
+                heading: Cesium.Math.toRadians(latestHeadingDeg),
+                pitch: Cesium.Math.toRadians(latestPitchDeg),
+                roll: Cesium.Math.toRadians(latestRollDeg)
+            }
+        });
+    }
+
+    async function requestiOSMotionPermissionIfNeeded() {
+        if (
+            typeof DeviceOrientationEvent !== "undefined" &&
+            typeof DeviceOrientationEvent.requestPermission === "function"
+        ) {
+            const result = await DeviceOrientationEvent.requestPermission();
+            if (result !== "granted") {
+                throw new Error("iOS 센서 권한이 거부되었습니다.");
+            }
+        }
+    }
+
+    function startOrientationTracking() {
+        window.addEventListener("deviceorientation", handleDeviceOrientation, true);
+    }
+
+    // =========================
+    // 7. 시작 버튼
+    // =========================
+    startBtn.addEventListener("click", async () => {
+        try {
+            statusEl.textContent = "권한 요청중...";
+
+            await requestiOSMotionPermissionIfNeeded();
+            await startCamera();
+            startGeolocation();
+            startOrientationTracking();
+
+            statusEl.textContent = "카메라 / GPS / 센서 시작됨";
+        } catch (e) {
+            console.error(e);
+            statusEl.textContent = `초기화 실패: ${e.message}`;
+        }
+    });
+
+    // =========================
+    // 8. 렌더 최적화
+    // =========================
+    viewer.scene.requestRenderMode = false;
+</script>
+</body>
+</html>
