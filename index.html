@@ -278,7 +278,7 @@
         const relativeBeta = lastBeta - betaBase;
 
         latestHeadingDeg = normalizeDegrees(360 - relativeAlpha + headingOffset);
-        latestPitchDeg = Cesium.Math.clamp(-(relativeBeta - 90) + pitchOffset, -89, 89);
+        latestPitchDeg = Cesium.Math.clamp((relativeBeta - 90) + pitchOffset, -89, 89);
         latestRollDeg = lastGamma * 0.2;
 
         const position = Cesium.Cartesian3.fromDegrees(
@@ -527,3 +527,4 @@
 </script>
 </body>
 </html>
+
