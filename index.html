@@ -513,10 +513,6 @@
         statusEl.textContent = "정면 기준 보정 완료";
     }
 
-    let latestHeadingDeg = 0;
-    let latestPitchDeg = -10;
-    let latestRollDeg = 0;
-
     function handleDeviceOrientation(event) {
         if (currentLon == null || currentLat == null) return;
 
