@@ -49,7 +49,7 @@
             color: white;
             padding: 12px;
             border-radius: 10px;
-            width: 300px;
+            width: 320px;
             font-size: 13px;
             line-height: 1.5;
         }
@@ -82,7 +82,7 @@
         .small {
             margin-top: 6px;
             font-size: 12px;
-            opacity: 0.85;
+            opacity: 0.9;
             word-break: break-all;
         }
     </style>
@@ -97,6 +97,7 @@
         <div id="status">초기화 대기중...</div>
 
         <button id="startBtn">카메라 / 위치 / 센서 시작</button>
+        <button id="calibrateBtn">정면 기준 보정</button>
         <button id="placeTestBoxBtn">정면 20m 테스트 박스 생성</button>
         <button id="removeTestBoxBtn">테스트 박스 삭제</button>
 
@@ -112,32 +113,40 @@
 
         <div class="row">
             <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
-            <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
+            <input id="heightOffset" type="range" min="-20" max="20" step="0.1" value="0" />
         </div>
 
-        <div class="small" id="coordText">
-            현재 좌표: 아직 없음
+        <div class="row">
+            <div class="label"><span>Zoom(FOV)</span><span id="fovVal">18</span></div>
+            <input id="fovRange" type="range" min="10" max="60" step="1" value="18" />
         </div>
+
+        <div class="small" id="coordText">현재 좌표: 아직 없음</div>
+        <div class="small" id="sensorText">센서값: 아직 없음</div>
     </div>
 
     <button id="uiBtnId" onclick="uiBtn()">닫기</button>
 </div>
 
 <script>
-    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
+    Cesium.Ion.defaultAccessToken = "YOUR_CESIUM_ION_TOKEN";
 
     const statusEl = document.getElementById("status");
     const coordTextEl = document.getElementById("coordText");
+    const sensorTextEl = document.getElementById("sensorText");
     const videoEl = document.getElementById("cameraVideo");
     const startBtn = document.getElementById("startBtn");
+    const calibrateBtn = document.getElementById("calibrateBtn");
 
     const headingOffsetEl = document.getElementById("headingOffset");
     const pitchOffsetEl = document.getElementById("pitchOffset");
     const heightOffsetEl = document.getElementById("heightOffset");
+    const fovRangeEl = document.getElementById("fovRange");
 
     const headingVal = document.getElementById("headingVal");
     const pitchVal = document.getElementById("pitchVal");
     const heightVal = document.getElementById("heightVal");
+    const fovVal = document.getElementById("fovVal");
 
     const placeTestBoxBtn = document.getElementById("placeTestBoxBtn");
     const removeTestBoxBtn = document.getElementById("removeTestBoxBtn");
@@ -146,7 +155,7 @@
 
     let currentLon = null;
     let currentLat = null;
-    let currentHeight = 30;
+    let currentHeight = 0;
 
     let osmBuildings = null;
     let gpsStarted = false;
@@ -155,20 +164,34 @@
     let watchId = null;
     let hasFirstGpsFix = false;
 
+    let latestHeadingDeg = 0;
+    let latestPitchDeg = 0;
+    let latestRollDeg = 0;
+
+    let lastAlpha = 0;
+    let lastBeta = 0;
+    let lastGamma = 0;
+
+    // 정면 기준 보정값
+    let calibratedAlpha = null;
+    let calibratedBeta = null;
+
+    // GPS 이동 디버깅용
+    let prevLon = null;
+    let prevLat = null;
+
+    // 눈높이 고정
+    const eyeHeightMeters = 1.6;
+
     function getForwardOffsetMeters(distanceMeters, headingDeg) {
-
         const headingRad = Cesium.Math.toRadians(headingDeg);
-
         const east = Math.sin(headingRad) * distanceMeters;
         const north = Math.cos(headingRad) * distanceMeters;
-
         return { east, north };
     }
 
     function offsetLonLatByMeters(lon, lat, eastMeters, northMeters) {
-
         const latRad = Cesium.Math.toRadians(lat);
-
         const metersPerDegLat = 111320;
         const metersPerDegLon = 111320 * Math.cos(latRad);
 
@@ -181,8 +204,21 @@
         };
     }
 
-    function placeTestBox(distanceMeters = 20) {
+    function distanceMeters(lat1, lon1, lat2, lon2) {
+        const R = 6371000;
+        const dLat = Cesium.Math.toRadians(lat2 - lat1);
+        const dLon = Cesium.Math.toRadians(lon2 - lon1);
 
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(Cesium.Math.toRadians(lat1)) *
+            Math.cos(Cesium.Math.toRadians(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function placeTestBox(distanceMeters = 20) {
         if (currentLon == null || currentLat == null) {
             statusEl.textContent = "현재 위치 없음";
             return;
@@ -192,76 +228,70 @@
             viewer.entities.remove(testBoxEntity);
         }
 
-        const { east, north } =
-            getForwardOffsetMeters(distanceMeters, latestHeadingDeg);
-
-        const target =
-            offsetLonLatByMeters(currentLon, currentLat, east, north);
-
-        const height = (currentHeight || 30) + 3;
+        const { east, north } = getForwardOffsetMeters(distanceMeters, latestHeadingDeg);
+        const target = offsetLonLatByMeters(currentLon, currentLat, east, north);
+        const height = eyeHeightMeters + 3;
 
         testBoxEntity = viewer.entities.add({
-
-            position: Cesium.Cartesian3.fromDegrees(
-                target.lon,
-                target.lat,
-                height
-            ),
-
+            position: Cesium.Cartesian3.fromDegrees(target.lon, target.lat, height),
             box: {
-                dimensions: new Cesium.Cartesian3(4,4,4),
+                dimensions: new Cesium.Cartesian3(4, 4, 4),
                 material: Cesium.Color.RED.withAlpha(0.8),
                 outline: true,
                 outlineColor: Cesium.Color.WHITE
             },
-
             label: {
                 text: "TEST 20m",
                 font: "16px sans-serif",
-                pixelOffset: new Cesium.Cartesian2(0,-40),
+                pixelOffset: new Cesium.Cartesian2(0, -40),
                 fillColor: Cesium.Color.WHITE,
                 showBackground: true,
                 backgroundColor: Cesium.Color.BLACK.withAlpha(0.6)
             }
-
         });
 
         statusEl.textContent = "정면 20m 테스트 박스 생성";
     }
 
     function removeTestBox() {
-
-        if(testBoxEntity){
-
+        if (testBoxEntity) {
             viewer.entities.remove(testBoxEntity);
-
             testBoxEntity = null;
-
             statusEl.textContent = "테스트 박스 삭제";
         }
     }
 
-    placeTestBoxBtn.addEventListener("click", () => {
-
-        placeTestBox(20);
-
-    });
-
-    removeTestBoxBtn.addEventListener("click", () => {
-
-        removeTestBox();
-
-    });
+    placeTestBoxBtn.addEventListener("click", () => placeTestBox(20));
+    removeTestBoxBtn.addEventListener("click", () => removeTestBox());
 
     function updateOffsetLabels() {
         headingVal.textContent = headingOffsetEl.value;
         pitchVal.textContent = pitchOffsetEl.value;
         heightVal.textContent = heightOffsetEl.value;
+        fovVal.textContent = fovRangeEl.value;
     }
 
-    headingOffsetEl.addEventListener("input", updateOffsetLabels);
-    pitchOffsetEl.addEventListener("input", updateOffsetLabels);
-    heightOffsetEl.addEventListener("input", updateOffsetLabels);
+    headingOffsetEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        updateCameraPose();
+    });
+
+    pitchOffsetEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        updateCameraPose();
+    });
+
+    heightOffsetEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        updateCameraPose();
+    });
+
+    fovRangeEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        viewer.camera.frustum.fov = Cesium.Math.toRadians(Number(fovRangeEl.value));
+        viewer.scene.requestRender();
+    });
+
     updateOffsetLabels();
 
     const viewer = new Cesium.Viewer("cesiumContainer", {
@@ -288,12 +318,14 @@
     viewer.scene.skyAtmosphere.show = false;
     viewer.scene.globe.baseColor = Cesium.Color.TRANSPARENT;
     viewer.scene.globe.showGroundAtmosphere = false;
-
-    // 오버레이 느낌을 위해 지구 표면은 숨기고 건물만 표시
     viewer.scene.globe.show = false;
-
     viewer.cesiumWidget.creditContainer.style.display = "none";
     viewer.scene.requestRenderMode = false;
+
+    // 확대 느낌
+    viewer.camera.frustum.fov = Cesium.Math.toRadians(18);
+    viewer.camera.frustum.near = 0.1;
+    viewer.camera.frustum.far = 5000.0;
 
     function normalizeDegrees(deg) {
         let d = deg % 360;
@@ -311,7 +343,12 @@
             `현재 좌표: lon=${currentLon.toFixed(6)}, lat=${currentLat.toFixed(6)}, h=${(currentHeight ?? 0).toFixed(1)}`;
     }
 
-    function moveCameraToCurrentPositionOnly() {
+    function updateSensorText() {
+        sensorTextEl.textContent =
+            `센서값: heading=${latestHeadingDeg.toFixed(1)}, pitch=${latestPitchDeg.toFixed(1)}, roll=${latestRollDeg.toFixed(1)}`;
+    }
+
+    function updateCameraPose() {
         if (currentLon == null || currentLat == null) return;
 
         const heightOffset = Number(heightOffsetEl.value) || 0;
@@ -319,15 +356,15 @@
         const destination = Cesium.Cartesian3.fromDegrees(
             currentLon,
             currentLat,
-            (currentHeight || 30) + heightOffset
+            eyeHeightMeters + heightOffset
         );
 
         viewer.camera.setView({
             destination,
             orientation: {
-                heading: 0,
-                pitch: 0,
-                roll: 0
+                heading: Cesium.Math.toRadians(latestHeadingDeg),
+                pitch: Cesium.Math.toRadians(latestPitchDeg),
+                roll: Cesium.Math.toRadians(latestRollDeg)
             }
         });
     }
@@ -390,17 +427,22 @@
             (pos) => {
                 currentLon = pos.coords.longitude;
                 currentLat = pos.coords.latitude;
-                currentHeight = pos.coords.altitude ?? 30;
+                currentHeight = pos.coords.altitude ?? 0;
                 hasFirstGpsFix = true;
 
-                updateCoordText();
-
-                if (!orientationStarted) {
-                    moveCameraToCurrentPositionOnly();
+                let movedText = "";
+                if (prevLat != null && prevLon != null) {
+                    const moved = distanceMeters(prevLat, prevLon, currentLat, currentLon);
+                    movedText = ` / 이동=${moved.toFixed(2)}m`;
                 }
+                prevLat = currentLat;
+                prevLon = currentLon;
+
+                updateCoordText();
+                updateCameraPose();
 
                 statusEl.textContent =
-                    `GPS 수신중: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}, h=${currentHeight.toFixed(1)}`;
+                    `GPS 수신중: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}${movedText}`;
             },
             (err) => {
                 console.error(err);
@@ -408,17 +450,21 @@
             },
             {
                 enableHighAccuracy: true,
-                maximumAge: 1000,
-                timeout: 10000
+                maximumAge: 0,
+                timeout: 5000
             }
         );
 
         gpsStarted = true;
     }
 
-    let latestHeadingDeg = 0;
-    let latestPitchDeg = -10;
-    let latestRollDeg = 0;
+    function calibrateForwardView() {
+        calibratedAlpha = lastAlpha;
+        calibratedBeta = lastBeta;
+        latestRollDeg = 0;
+        updateCameraPose();
+        statusEl.textContent = "정면 기준 보정 완료";
+    }
 
     function handleDeviceOrientation(event) {
         if (currentLon == null || currentLat == null) return;
@@ -427,28 +473,28 @@
         const beta = event.beta ?? 0;
         const gamma = event.gamma ?? 0;
 
+        lastAlpha = alpha;
+        lastBeta = beta;
+        lastGamma = gamma;
+
         const headingOffset = Number(headingOffsetEl.value) || 0;
         const pitchOffset = Number(pitchOffsetEl.value) || 0;
-        const heightOffset = Number(heightOffsetEl.value) || 0;
 
+        if (calibratedAlpha == null) calibratedAlpha = alpha;
+        if (calibratedBeta == null) calibratedBeta = beta;
+
+        // heading
         latestHeadingDeg = normalizeDegrees(360 - alpha + headingOffset);
-        latestPitchDeg = Cesium.Math.clamp(-(beta - 90) + pitchOffset, -89, 89);
-        latestRollDeg = gamma * 0.2;
 
-        const position = Cesium.Cartesian3.fromDegrees(
-            currentLon,
-            currentLat,
-            (currentHeight || 30) + heightOffset
-        );
+        // 폰을 정면으로 세운 순간을 pitch 0 기준으로 잡음
+        const pitchFromCalibration = calibratedBeta - beta;
+        latestPitchDeg = Cesium.Math.clamp(pitchFromCalibration + pitchOffset, -89, 89);
 
-        viewer.camera.setView({
-            destination: position,
-            orientation: {
-                heading: Cesium.Math.toRadians(latestHeadingDeg),
-                pitch: Cesium.Math.toRadians(latestPitchDeg),
-                roll: Cesium.Math.toRadians(latestRollDeg)
-            }
-        });
+        // 처음엔 roll 흔들림 줄이기 위해 0 고정
+        latestRollDeg = 0;
+
+        updateSensorText();
+        updateCameraPose();
     }
 
     async function requestiOSMotionPermissionIfNeeded() {
@@ -469,18 +515,21 @@
         orientationStarted = true;
     }
 
-    function uiBtn() {
-        let id = document.getElementById("ui_box");
-        let btnId = document.getElementById("uiBtnId");
+    calibrateBtn.addEventListener("click", () => {
+        calibrateForwardView();
+    });
 
-        if(id.style.display === "none") {
+    function uiBtn() {
+        const id = document.getElementById("ui_box");
+        const btnId = document.getElementById("uiBtnId");
+
+        if (id.style.display === "none") {
             id.style.display = "block";
             btnId.innerText = "닫기";
-        }else {
+        } else {
             id.style.display = "none";
             btnId.innerText = "열기";
         }
-
     }
 
     startBtn.addEventListener("click", async () => {
@@ -496,6 +545,8 @@
             await loadOsmBuildings();
             await requestiOSMotionPermissionIfNeeded();
             startOrientationTracking();
+
+            updateCameraPose();
 
             statusEl.textContent = "카메라 / 현재위치 / 센서 / OSM 건물 시작됨";
         } catch (e) {
