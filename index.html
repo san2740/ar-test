@@ -6,10 +6,7 @@
     <title>Cesium Camera AR Overlay</title>
 
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
-    <link
-            href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css"
-            rel="stylesheet"
-    />
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet"/>
 
     <style>
         html, body {
@@ -100,6 +97,8 @@
         <div id="status">초기화 대기중...</div>
 
         <button id="startBtn">카메라 / 위치 / 센서 시작</button>
+        <button id="placeTestBoxBtn">정면 20m 테스트 박스 생성</button>
+        <button id="removeTestBoxBtn">테스트 박스 삭제</button>
 
         <div class="row">
             <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
@@ -140,6 +139,11 @@
     const pitchVal = document.getElementById("pitchVal");
     const heightVal = document.getElementById("heightVal");
 
+    const placeTestBoxBtn = document.getElementById("placeTestBoxBtn");
+    const removeTestBoxBtn = document.getElementById("removeTestBoxBtn");
+
+    let testBoxEntity = null;
+
     let currentLon = null;
     let currentLat = null;
     let currentHeight = 30;
@@ -150,6 +154,104 @@
     let cameraStarted = false;
     let watchId = null;
     let hasFirstGpsFix = false;
+
+    function getForwardOffsetMeters(distanceMeters, headingDeg) {
+
+        const headingRad = Cesium.Math.toRadians(headingDeg);
+
+        const east = Math.sin(headingRad) * distanceMeters;
+        const north = Math.cos(headingRad) * distanceMeters;
+
+        return { east, north };
+    }
+
+    function offsetLonLatByMeters(lon, lat, eastMeters, northMeters) {
+
+        const latRad = Cesium.Math.toRadians(lat);
+
+        const metersPerDegLat = 111320;
+        const metersPerDegLon = 111320 * Math.cos(latRad);
+
+        const dLat = northMeters / metersPerDegLat;
+        const dLon = eastMeters / metersPerDegLon;
+
+        return {
+            lon: lon + dLon,
+            lat: lat + dLat
+        };
+    }
+
+    function placeTestBox(distanceMeters = 20) {
+
+        if (currentLon == null || currentLat == null) {
+            statusEl.textContent = "현재 위치 없음";
+            return;
+        }
+
+        if (testBoxEntity) {
+            viewer.entities.remove(testBoxEntity);
+        }
+
+        const { east, north } =
+            getForwardOffsetMeters(distanceMeters, latestHeadingDeg);
+
+        const target =
+            offsetLonLatByMeters(currentLon, currentLat, east, north);
+
+        const height = (currentHeight || 30) + 3;
+
+        testBoxEntity = viewer.entities.add({
+
+            position: Cesium.Cartesian3.fromDegrees(
+                target.lon,
+                target.lat,
+                height
+            ),
+
+            box: {
+                dimensions: new Cesium.Cartesian3(4,4,4),
+                material: Cesium.Color.RED.withAlpha(0.8),
+                outline: true,
+                outlineColor: Cesium.Color.WHITE
+            },
+
+            label: {
+                text: "TEST 20m",
+                font: "16px sans-serif",
+                pixelOffset: new Cesium.Cartesian2(0,-40),
+                fillColor: Cesium.Color.WHITE,
+                showBackground: true,
+                backgroundColor: Cesium.Color.BLACK.withAlpha(0.6)
+            }
+
+        });
+
+        statusEl.textContent = "정면 20m 테스트 박스 생성";
+    }
+
+    function removeTestBox() {
+
+        if(testBoxEntity){
+
+            viewer.entities.remove(testBoxEntity);
+
+            testBoxEntity = null;
+
+            statusEl.textContent = "테스트 박스 삭제";
+        }
+    }
+
+    placeTestBoxBtn.addEventListener("click", () => {
+
+        placeTestBox(20);
+
+    });
+
+    removeTestBoxBtn.addEventListener("click", () => {
+
+        removeTestBox();
+
+    });
 
     function updateOffsetLabels() {
         headingVal.textContent = headingOffsetEl.value;
