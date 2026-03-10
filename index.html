@@ -47,7 +47,7 @@
             color: white;
             padding: 12px;
             border-radius: 10px;
-            width: 280px;
+            width: 300px;
             font-size: 13px;
             line-height: 1.5;
         }
@@ -76,6 +76,13 @@
             justify-content: space-between;
             margin-bottom: 2px;
         }
+
+        .small {
+            margin-top: 6px;
+            font-size: 12px;
+            opacity: 0.85;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
@@ -102,15 +109,17 @@
         <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
         <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
     </div>
+
+    <div class="small" id="coordText">
+        현재 좌표: 아직 없음
+    </div>
 </div>
 
 <script>
-    // =========================
-    // 0. Cesium Ion Token 설정
-    // =========================
     Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
 
     const statusEl = document.getElementById("status");
+    const coordTextEl = document.getElementById("coordText");
     const videoEl = document.getElementById("cameraVideo");
     const startBtn = document.getElementById("startBtn");
 
@@ -121,6 +130,17 @@
     const headingVal = document.getElementById("headingVal");
     const pitchVal = document.getElementById("pitchVal");
     const heightVal = document.getElementById("heightVal");
+
+    let currentLon = null;
+    let currentLat = null;
+    let currentHeight = 30;
+
+    let osmBuildings = null;
+    let gpsStarted = false;
+    let orientationStarted = false;
+    let cameraStarted = false;
+    let watchId = null;
+    let hasFirstGpsFix = false;
 
     function updateOffsetLabels() {
         headingVal.textContent = headingOffsetEl.value;
@@ -133,9 +153,6 @@
     heightOffsetEl.addEventListener("input", updateOffsetLabels);
     updateOffsetLabels();
 
-    // =========================
-    // 1. Viewer 생성
-    // =========================
     const viewer = new Cesium.Viewer("cesiumContainer", {
         animation: false,
         timeline: false,
@@ -156,73 +173,66 @@
     viewer.scene.globe.baseColor = Cesium.Color.TRANSPARENT;
     viewer.scene.globe.showGroundAtmosphere = false;
 
-    // 지형/지도 숨기고 오브젝트만 보이게 하고 싶으면 아래 사용
-    // viewer.scene.globe.show = false;
+    // 오버레이 느낌을 위해 지구 표면은 숨기고 건물만 표시
+    viewer.scene.globe.show = false;
 
-    // UI 제거
     viewer.cesiumWidget.creditContainer.style.display = "none";
+    viewer.scene.requestRenderMode = false;
 
-    // =========================
-    // 2. 테스트용 오브젝트 추가
-    // =========================
-    let currentLon = 127.0276; // 기본값(강남역 근처 예시)
-    let currentLat = 37.4979;
-    let currentHeight = 60;
+    function normalizeDegrees(deg) {
+        let d = deg % 360;
+        if (d < 0) d += 360;
+        return d;
+    }
 
-    // 사용자의 현재 위치 기준 전방 30m 정도에 박스 하나 두기
-    let demoEntity = null;
-
-    function addDemoEntity(lon, lat, height) {
-        if (demoEntity) {
-            viewer.entities.remove(demoEntity);
+    function updateCoordText() {
+        if (currentLon == null || currentLat == null) {
+            coordTextEl.textContent = "현재 좌표: 아직 없음";
+            return;
         }
 
-        // 임시로 현재 위치 기준 약간 북쪽으로 배치
-        demoEntity = viewer.entities.add({
-            name: "AR Demo Box",
-            position: Cesium.Cartesian3.fromDegrees(lon, lat + 0.00015, height + 5),
-            box: {
-                dimensions: new Cesium.Cartesian3(10, 10, 10),
-                material: Cesium.Color.RED.withAlpha(0.7),
-                outline: true,
-                outlineColor: Cesium.Color.WHITE
+        coordTextEl.textContent =
+            `현재 좌표: lon=${currentLon.toFixed(6)}, lat=${currentLat.toFixed(6)}, h=${(currentHeight ?? 0).toFixed(1)}`;
+    }
+
+    function moveCameraToCurrentPositionOnly() {
+        if (currentLon == null || currentLat == null) return;
+
+        const heightOffset = Number(heightOffsetEl.value) || 0;
+
+        const destination = Cesium.Cartesian3.fromDegrees(
+            currentLon,
+            currentLat,
+            (currentHeight || 30) + heightOffset
+        );
+
+        viewer.camera.setView({
+            destination,
+            orientation: {
+                heading: 0,
+                pitch: 0,
+                roll: 0
             }
         });
     }
 
-    addDemoEntity(currentLon, currentLat, currentHeight);
-
-    // =========================
-    // 3. 3D Tileset 예시
-    // =========================
-    let tileset = null;
-
-    async function addTilesetExample() {
+    async function loadOsmBuildings() {
         try {
-            // 본인 타일셋 asset id로 변경
-            // 예: const assetId = 123456;
-            const assetId = null;
+            if (osmBuildings) return;
 
-            if (!assetId) return;
-
-            tileset = await Cesium.Cesium3DTileset.fromIonAssetId(assetId);
-            viewer.scene.primitives.add(tileset);
-
-            await tileset.readyPromise;
-            statusEl.textContent = "3D Tileset 로드 완료";
+            statusEl.textContent = "OSM 건물 로드중...";
+            osmBuildings = await Cesium.createOsmBuildingsAsync();
+            viewer.scene.primitives.add(osmBuildings);
+            statusEl.textContent = "OSM 건물 로드 완료";
         } catch (e) {
             console.error(e);
-            statusEl.textContent = "3D Tileset 로드 실패";
+            statusEl.textContent = `OSM 건물 로드 실패: ${e.message}`;
         }
     }
 
-    // 필요하면 활성화
-    // addTilesetExample();
-
-    // =========================
-    // 4. 카메라 시작
-    // =========================
     async function startCamera() {
+        if (cameraStarted) return;
+
         const stream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: { ideal: "environment" }
@@ -232,14 +242,30 @@
 
         videoEl.srcObject = stream;
         await videoEl.play();
+        cameraStarted = true;
     }
 
-    // =========================
-    // 5. GPS 추적
-    // =========================
-    let watchId = null;
+    function waitForFirstGpsFix(timeoutMs = 15000) {
+        return new Promise((resolve, reject) => {
+            const startTime = Date.now();
+
+            const timer = setInterval(() => {
+                if (hasFirstGpsFix && currentLon != null && currentLat != null) {
+                    clearInterval(timer);
+                    resolve();
+                    return;
+                }
+
+                if (Date.now() - startTime > timeoutMs) {
+                    clearInterval(timer);
+                    reject(new Error("현재 위치를 가져오지 못했습니다. 실외에서 위치 권한을 확인해보세요."));
+                }
+            }, 300);
+        });
+    }
 
     function startGeolocation() {
+        if (gpsStarted) return;
         if (!navigator.geolocation) {
             throw new Error("이 브라우저는 geolocation을 지원하지 않습니다.");
         }
@@ -249,19 +275,20 @@
                 currentLon = pos.coords.longitude;
                 currentLat = pos.coords.latitude;
                 currentHeight = pos.coords.altitude ?? 30;
+                hasFirstGpsFix = true;
 
-                const heightOffset = Number(heightOffsetEl.value) || 0;
-                const camHeight = currentHeight + heightOffset;
+                updateCoordText();
 
-                // 위치 갱신 시 테스트 박스도 같이 갱신
-                addDemoEntity(currentLon, currentLat, camHeight);
+                if (!orientationStarted) {
+                    moveCameraToCurrentPositionOnly();
+                }
 
                 statusEl.textContent =
-                    `GPS: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}, h=${camHeight.toFixed(1)}`;
+                    `GPS 수신중: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}, h=${currentHeight.toFixed(1)}`;
             },
             (err) => {
                 console.error(err);
-                statusEl.textContent = "GPS 권한 또는 위치 획득 실패";
+                statusEl.textContent = `GPS 실패: ${err.message}`;
             },
             {
                 enableHighAccuracy: true,
@@ -269,25 +296,17 @@
                 timeout: 10000
             }
         );
+
+        gpsStarted = true;
     }
 
-    // =========================
-    // 6. 디바이스 방향값 -> Cesium 카메라 회전
-    // =========================
     let latestHeadingDeg = 0;
     let latestPitchDeg = -10;
     let latestRollDeg = 0;
 
-    function normalizeDegrees(deg) {
-        let d = deg % 360;
-        if (d < 0) d += 360;
-        return d;
-    }
-
-    // 안드로이드/일반 브라우저용
     function handleDeviceOrientation(event) {
-        // alpha: z축 회전(나침반 비슷), beta: x축, gamma: y축
-        // 브라우저마다 축 해석이 약간 달라서 현장 보정이 필요함
+        if (currentLon == null || currentLat == null) return;
+
         const alpha = event.alpha ?? 0;
         const beta = event.beta ?? 0;
         const gamma = event.gamma ?? 0;
@@ -296,7 +315,6 @@
         const pitchOffset = Number(pitchOffsetEl.value) || 0;
         const heightOffset = Number(heightOffsetEl.value) || 0;
 
-        // 간단 근사
         latestHeadingDeg = normalizeDegrees(360 - alpha + headingOffset);
         latestPitchDeg = Cesium.Math.clamp(-(beta - 90) + pitchOffset, -89, 89);
         latestRollDeg = gamma * 0.2;
@@ -330,32 +348,31 @@
     }
 
     function startOrientationTracking() {
+        if (orientationStarted) return;
         window.addEventListener("deviceorientation", handleDeviceOrientation, true);
+        orientationStarted = true;
     }
 
-    // =========================
-    // 7. 시작 버튼
-    // =========================
     startBtn.addEventListener("click", async () => {
         try {
             statusEl.textContent = "권한 요청중...";
 
-            await requestiOSMotionPermissionIfNeeded();
             await startCamera();
+
+            statusEl.textContent = "현재 위치 가져오는 중...";
             startGeolocation();
+            await waitForFirstGpsFix();
+
+            await loadOsmBuildings();
+            await requestiOSMotionPermissionIfNeeded();
             startOrientationTracking();
 
-            statusEl.textContent = "카메라 / GPS / 센서 시작됨";
+            statusEl.textContent = "카메라 / 현재위치 / 센서 / OSM 건물 시작됨";
         } catch (e) {
             console.error(e);
             statusEl.textContent = `초기화 실패: ${e.message}`;
         }
     });
-
-    // =========================
-    // 8. 렌더 최적화
-    // =========================
-    viewer.scene.requestRenderMode = false;
 </script>
 </body>
 </html>
