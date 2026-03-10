@@ -149,6 +149,7 @@
     let currentLon = null;
     let currentLat = null;
     let currentHeight = 0;
+    let groundHeight = 0;
 
     let osmBuildings = null;
     let gpsStarted = false;
@@ -172,6 +173,46 @@
     let prevLat = null;
 
     const eyeHeightMeters = 1.6;
+
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+        animation: false,
+        timeline: false,
+        baseLayerPicker: false,
+        geocoder: false,
+        homeButton: false,
+        infoBox: false,
+        sceneModePicker: false,
+        navigationHelpButton: false,
+        fullscreenButton: false,
+        selectionIndicator: false,
+        shouldAnimate: true,
+        terrain: Cesium.Terrain.fromWorldTerrain(),
+        contextOptions: {
+            webgl: {
+                alpha: true
+            }
+        }
+    });
+
+    viewer.scene.backgroundColor = Cesium.Color.TRANSPARENT;
+    viewer.scene.skyBox.show = false;
+    viewer.scene.skyAtmosphere.show = false;
+    viewer.scene.globe.baseColor = Cesium.Color.TRANSPARENT;
+    viewer.scene.globe.showGroundAtmosphere = false;
+    viewer.scene.globe.show = false;
+    viewer.cesiumWidget.creditContainer.style.display = "none";
+    viewer.scene.requestRenderMode = false;
+
+    // 확대감
+    viewer.camera.frustum.fov = Cesium.Math.toRadians(18);
+    viewer.camera.frustum.near = 0.1;
+    viewer.camera.frustum.far = 5000.0;
+
+    function normalizeDegrees(deg) {
+        let d = deg % 360;
+        if (d < 0) d += 360;
+        return d;
+    }
 
     function distanceMeters(lat1, lon1, lat2, lon2) {
         const R = 6371000;
@@ -217,44 +258,6 @@
 
     updateOffsetLabels();
 
-    const viewer = new Cesium.Viewer("cesiumContainer", {
-        animation: false,
-        timeline: false,
-        baseLayerPicker: false,
-        geocoder: false,
-        homeButton: false,
-        infoBox: false,
-        sceneModePicker: false,
-        navigationHelpButton: false,
-        fullscreenButton: false,
-        selectionIndicator: false,
-        shouldAnimate: true,
-        contextOptions: {
-            webgl: {
-                alpha: true
-            }
-        }
-    });
-
-    viewer.scene.backgroundColor = Cesium.Color.TRANSPARENT;
-    viewer.scene.skyBox.show = false;
-    viewer.scene.skyAtmosphere.show = false;
-    viewer.scene.globe.baseColor = Cesium.Color.TRANSPARENT;
-    viewer.scene.globe.showGroundAtmosphere = false;
-    viewer.scene.globe.show = false;
-    viewer.cesiumWidget.creditContainer.style.display = "none";
-    viewer.scene.requestRenderMode = false;
-
-    viewer.camera.frustum.fov = Cesium.Math.toRadians(18);
-    viewer.camera.frustum.near = 0.1;
-    viewer.camera.frustum.far = 5000.0;
-
-    function normalizeDegrees(deg) {
-        let d = deg % 360;
-        if (d < 0) d += 360;
-        return d;
-    }
-
     function updateCoordText() {
         if (currentLon == null || currentLat == null) {
             coordTextEl.textContent = "현재 좌표: 아직 없음";
@@ -262,12 +265,30 @@
         }
 
         coordTextEl.textContent =
-            `현재 좌표: lon=${currentLon.toFixed(6)}, lat=${currentLat.toFixed(6)}, h=${(currentHeight ?? 0).toFixed(1)}`;
+            `현재 좌표: lon=${currentLon.toFixed(6)}, lat=${currentLat.toFixed(6)}, gpsH=${(currentHeight ?? 0).toFixed(1)}, ground=${groundHeight.toFixed(1)}`;
     }
 
     function updateSensorText() {
         sensorTextEl.textContent =
             `센서값: heading=${latestHeadingDeg.toFixed(1)}, pitch=${latestPitchDeg.toFixed(1)}, roll=${latestRollDeg.toFixed(1)}`;
+    }
+
+    async function updateGroundHeight() {
+        if (currentLon == null || currentLat == null) return;
+
+        try {
+            const cartographic = Cesium.Cartographic.fromDegrees(currentLon, currentLat);
+            const updated = await Cesium.sampleTerrainMostDetailed(
+                viewer.terrainProvider,
+                [cartographic]
+            );
+
+            if (updated && updated.length > 0 && Number.isFinite(updated[0].height)) {
+                groundHeight = updated[0].height;
+            }
+        } catch (e) {
+            console.warn("지면 높이 조회 실패:", e);
+        }
     }
 
     function updateCameraPose() {
@@ -278,7 +299,7 @@
         const destination = Cesium.Cartesian3.fromDegrees(
             currentLon,
             currentLat,
-            eyeHeightMeters + heightOffset
+            groundHeight + eyeHeightMeters + heightOffset
         );
 
         viewer.camera.setView({
@@ -346,7 +367,7 @@
         }
 
         watchId = navigator.geolocation.watchPosition(
-            (pos) => {
+            async (pos) => {
                 currentLon = pos.coords.longitude;
                 currentLat = pos.coords.latitude;
                 currentHeight = pos.coords.altitude ?? 0;
@@ -360,11 +381,12 @@
                 prevLat = currentLat;
                 prevLon = currentLon;
 
+                await updateGroundHeight();
                 updateCoordText();
                 updateCameraPose();
 
                 statusEl.textContent =
-                    `GPS 수신중: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}${movedText}`;
+                    `GPS 수신중: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}, ground=${groundHeight.toFixed(1)}${movedText}`;
             },
             (err) => {
                 console.error(err);
@@ -407,9 +429,11 @@
 
         latestHeadingDeg = normalizeDegrees(360 - alpha + headingOffset);
 
-        const pitchFromCalibration = calibratedBeta - beta;
+        // 위로 들면 하늘, 아래로 내리면 바닥
+        const pitchFromCalibration = beta - calibratedBeta;
         latestPitchDeg = Cesium.Math.clamp(pitchFromCalibration + pitchOffset, -89, 89);
 
+        // 초기에는 화면 기울어짐 방지
         latestRollDeg = 0;
 
         updateSensorText();
@@ -461,10 +485,12 @@
             startGeolocation();
             await waitForFirstGpsFix();
 
+            await updateGroundHeight();
             await loadOsmBuildings();
             await requestiOSMotionPermissionIfNeeded();
             startOrientationTracking();
 
+            updateCoordText();
             updateCameraPose();
 
             statusEl.textContent = "카메라 / 현재위치 / 센서 / OSM 건물 시작됨";
