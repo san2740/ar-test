@@ -166,12 +166,17 @@
     let lastBeta = 0;
     let lastGamma = 0;
 
+    let rawHeadingDeg = 0;
+    let rawPitchDeg = 0;
+    let rawRollDeg = 0;
+
     let latestHeadingDeg = 0;
-    let latestPitchDeg = -10;
+    let latestPitchDeg = 0;
     let latestRollDeg = 0;
 
-    let calibratedAlpha = null;
-    let calibratedBeta = null;
+    let calibratedHeading = null;
+    let calibratedPitch = null;
+    let calibratedRoll = null;
 
     const eyeHeightMeters = 1.6;
 
@@ -222,6 +227,10 @@
         return d;
     }
 
+    function clamp(v, min, max) {
+        return Math.max(min, Math.min(max, v));
+    }
+
     function updateOffsetLabels() {
         headingVal.textContent = headingOffsetEl.value;
         pitchVal.textContent = pitchOffsetEl.value;
@@ -263,6 +272,196 @@
         }
     }
 
+    function getScreenOrientationAngleDeg() {
+        if (screen.orientation && typeof screen.orientation.angle === "number") {
+            return screen.orientation.angle;
+        }
+        if (typeof window.orientation === "number") {
+            return window.orientation;
+        }
+        return 0;
+    }
+
+    function multiplyMatrix3Array(a, b) {
+        return [
+            a[0]*b[0] + a[1]*b[3] + a[2]*b[6],
+            a[0]*b[1] + a[1]*b[4] + a[2]*b[7],
+            a[0]*b[2] + a[1]*b[5] + a[2]*b[8],
+
+            a[3]*b[0] + a[4]*b[3] + a[5]*b[6],
+            a[3]*b[1] + a[4]*b[4] + a[5]*b[7],
+            a[3]*b[2] + a[4]*b[5] + a[5]*b[8],
+
+            a[6]*b[0] + a[7]*b[3] + a[8]*b[6],
+            a[6]*b[1] + a[7]*b[4] + a[8]*b[7],
+            a[6]*b[2] + a[7]*b[5] + a[8]*b[8]
+        ];
+    }
+
+    function multiplyMatrixVector3(m, v) {
+        return new Cesium.Cartesian3(
+            m[0] * v.x + m[1] * v.y + m[2] * v.z,
+            m[3] * v.x + m[4] * v.y + m[5] * v.z,
+            m[6] * v.x + m[7] * v.y + m[8] * v.z
+        );
+    }
+
+    function rotationZ(rad) {
+        const c = Math.cos(rad);
+        const s = Math.sin(rad);
+        return [
+            c, -s, 0,
+            s,  c, 0,
+            0,  0, 1
+        ];
+    }
+
+    function rotationX(rad) {
+        const c = Math.cos(rad);
+        const s = Math.sin(rad);
+        return [
+            1, 0,  0,
+            0, c, -s,
+            0, s,  c
+        ];
+    }
+
+    function rotationY(rad) {
+        const c = Math.cos(rad);
+        const s = Math.sin(rad);
+        return [
+             c, 0, s,
+             0, 1, 0,
+            -s, 0, c
+        ];
+    }
+
+    function normalizeVec(v) {
+        const out = Cesium.Cartesian3.clone(v);
+        return Cesium.Cartesian3.normalize(out, out);
+    }
+
+    function projectToPlane(v, normal) {
+        const dot = Cesium.Cartesian3.dot(v, normal);
+        const scaledNormal = Cesium.Cartesian3.multiplyByScalar(normal, dot, new Cesium.Cartesian3());
+        return Cesium.Cartesian3.subtract(v, scaledNormal, new Cesium.Cartesian3());
+    }
+
+    function rotateAroundAxis(vec, axis, angleRad) {
+        const k = normalizeVec(axis);
+        const cosA = Math.cos(angleRad);
+        const sinA = Math.sin(angleRad);
+
+        const term1 = Cesium.Cartesian3.multiplyByScalar(vec, cosA, new Cesium.Cartesian3());
+        const kCrossV = Cesium.Cartesian3.cross(k, vec, new Cesium.Cartesian3());
+        const term2 = Cesium.Cartesian3.multiplyByScalar(kCrossV, sinA, new Cesium.Cartesian3());
+        const kDotV = Cesium.Cartesian3.dot(k, vec);
+        const term3 = Cesium.Cartesian3.multiplyByScalar(k, kDotV * (1 - cosA), new Cesium.Cartesian3());
+
+        const temp = Cesium.Cartesian3.add(term1, term2, new Cesium.Cartesian3());
+        return Cesium.Cartesian3.add(temp, term3, temp);
+    }
+
+    function buildDirectionUpFromHeadingPitchRoll(headingDeg, pitchDeg, rollDeg) {
+        const headingRad = Cesium.Math.toRadians(headingDeg);
+        const pitchRad = Cesium.Math.toRadians(pitchDeg);
+        const rollRad = Cesium.Math.toRadians(rollDeg);
+
+        // ENU 기준
+        // x = east, y = north, z = up
+        const dir = new Cesium.Cartesian3(
+            Math.cos(pitchRad) * Math.sin(headingRad),
+            Math.cos(pitchRad) * Math.cos(headingRad),
+            Math.sin(pitchRad)
+        );
+        Cesium.Cartesian3.normalize(dir, dir);
+
+        const worldUp = new Cesium.Cartesian3(0, 0, 1);
+
+        let right = Cesium.Cartesian3.cross(dir, worldUp, new Cesium.Cartesian3());
+        if (Cesium.Cartesian3.magnitudeSquared(right) < 1e-8) {
+            right = Cesium.Cartesian3.cross(dir, new Cesium.Cartesian3(0, 1, 0), right);
+        }
+        Cesium.Cartesian3.normalize(right, right);
+
+        let up = Cesium.Cartesian3.cross(right, dir, new Cesium.Cartesian3());
+        Cesium.Cartesian3.normalize(up, up);
+
+        if (Math.abs(rollDeg) > 0.0001) {
+            up = rotateAroundAxis(up, dir, rollRad);
+            Cesium.Cartesian3.normalize(up, up);
+        }
+
+        return { direction: dir, up };
+    }
+
+    function computePoseFromDeviceOrientation(event) {
+        const alpha = Cesium.Math.toRadians(event.alpha ?? 0);
+        const beta = Cesium.Math.toRadians(event.beta ?? 0);
+        const gamma = Cesium.Math.toRadians(event.gamma ?? 0);
+        const orient = Cesium.Math.toRadians(getScreenOrientationAngleDeg());
+
+        // W3C deviceorientation 기본 회전 순서: Z(alpha) -> X(beta) -> Y(gamma)
+        const rz = rotationZ(alpha);
+        const rx = rotationX(beta);
+        const ry = rotationY(gamma);
+        const rs = rotationZ(-orient);
+
+        let m = multiplyMatrix3Array(rz, rx);
+        m = multiplyMatrix3Array(m, ry);
+        m = multiplyMatrix3Array(m, rs);
+
+        // back camera는 대체로 -Z 방향을 본다고 가정
+        const deviceForward = new Cesium.Cartesian3(0, 0, -1);
+        const deviceUp = new Cesium.Cartesian3(0, 1, 0);
+
+        let forward = multiplyMatrixVector3(m, deviceForward);
+        let up = multiplyMatrixVector3(m, deviceUp);
+
+        forward = normalizeVec(forward);
+        up = normalizeVec(up);
+
+        // iOS는 webkitCompassHeading이 훨씬 안정적일 때가 많음
+        let headingDeg;
+        if (typeof event.webkitCompassHeading === "number" && Number.isFinite(event.webkitCompassHeading)) {
+            headingDeg = normalizeDegrees(event.webkitCompassHeading);
+        } else {
+            headingDeg = normalizeDegrees(Cesium.Math.toDegrees(Math.atan2(forward.x, forward.y)));
+        }
+
+        const pitchDeg = Cesium.Math.toDegrees(Math.asin(clamp(forward.z, -1, 1)));
+
+        // roll 계산
+        const worldUp = new Cesium.Cartesian3(0, 0, 1);
+
+        let baseRight = Cesium.Cartesian3.cross(forward, worldUp, new Cesium.Cartesian3());
+        if (Cesium.Cartesian3.magnitudeSquared(baseRight) < 1e-8) {
+            baseRight = Cesium.Cartesian3.cross(forward, new Cesium.Cartesian3(0, 1, 0), baseRight);
+        }
+        Cesium.Cartesian3.normalize(baseRight, baseRight);
+
+        let baseUp = Cesium.Cartesian3.cross(baseRight, forward, new Cesium.Cartesian3());
+        Cesium.Cartesian3.normalize(baseUp, baseUp);
+
+        let upProjected = projectToPlane(up, forward);
+        if (Cesium.Cartesian3.magnitudeSquared(upProjected) < 1e-8) {
+            upProjected = Cesium.Cartesian3.clone(baseUp);
+        }
+        Cesium.Cartesian3.normalize(upProjected, upProjected);
+
+        const crossUp = Cesium.Cartesian3.cross(baseUp, upProjected, new Cesium.Cartesian3());
+        const sinRoll = Cesium.Cartesian3.dot(crossUp, forward);
+        const cosRoll = Cesium.Cartesian3.dot(baseUp, upProjected);
+
+        const rollDeg = Cesium.Math.toDegrees(Math.atan2(sinRoll, cosRoll));
+
+        return {
+            headingDeg,
+            pitchDeg,
+            rollDeg
+        };
+    }
+
     function applyCameraPose() {
         if (currentLon == null || currentLat == null) return;
 
@@ -270,16 +469,15 @@
         const pitchOffset = Number(pitchOffsetEl.value) || 0;
         const heightOffset = Number(heightOffsetEl.value) || 0;
 
-        const alphaBase = calibratedAlpha ?? 0;
-        const betaBase = calibratedBeta ?? 0;
+        const headingBase = calibratedHeading ?? 0;
+        const pitchBase = calibratedPitch ?? 0;
+        const rollBase = calibratedRoll ?? 0;
 
-        // 예전처럼 바로 반응하는 방식
-        const relativeAlpha = lastAlpha - alphaBase;
-        const relativeBeta = lastBeta - betaBase;
+        latestHeadingDeg = normalizeDegrees(rawHeadingDeg - headingBase + headingOffset);
+        latestPitchDeg = clamp(rawPitchDeg - pitchBase + pitchOffset, -89, 89);
 
-        latestHeadingDeg = normalizeDegrees(360 - relativeAlpha + headingOffset);
-        latestPitchDeg = Cesium.Math.clamp((relativeBeta - 90) + pitchOffset, -89, 89);
-        latestRollDeg = lastGamma * 0.2;
+        // roll은 너무 민감하면 화면이 흔들리므로 약하게 반영
+        latestRollDeg = clamp((rawRollDeg - rollBase) * 0.35, -30, 30);
 
         const position = Cesium.Cartesian3.fromDegrees(
             currentLon,
@@ -287,12 +485,33 @@
             groundHeight + eyeHeightMeters + heightOffset
         );
 
+        const localPose = buildDirectionUpFromHeadingPitchRoll(
+            latestHeadingDeg,
+            latestPitchDeg,
+            latestRollDeg
+        );
+
+        const enuFrame = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+
+        const worldDirection = Cesium.Matrix4.multiplyByPointAsVector(
+            enuFrame,
+            localPose.direction,
+            new Cesium.Cartesian3()
+        );
+        Cesium.Cartesian3.normalize(worldDirection, worldDirection);
+
+        const worldUp = Cesium.Matrix4.multiplyByPointAsVector(
+            enuFrame,
+            localPose.up,
+            new Cesium.Cartesian3()
+        );
+        Cesium.Cartesian3.normalize(worldUp, worldUp);
+
         viewer.camera.setView({
             destination: position,
             orientation: {
-                heading: Cesium.Math.toRadians(latestHeadingDeg),
-                pitch: Cesium.Math.toRadians(latestPitchDeg),
-                roll: Cesium.Math.toRadians(latestRollDeg)
+                direction: worldDirection,
+                up: worldUp
             }
         });
 
@@ -419,8 +638,9 @@
     }
 
     function calibrateForwardView() {
-        calibratedAlpha = lastAlpha;
-        calibratedBeta = lastBeta;
+        calibratedHeading = rawHeadingDeg;
+        calibratedPitch = rawPitchDeg;
+        calibratedRoll = rawRollDeg;
 
         if (currentLon != null && currentLat != null) {
             applyCameraPose();
@@ -434,7 +654,15 @@
         lastBeta = event.beta ?? 0;
         lastGamma = event.gamma ?? 0;
 
+        const pose = computePoseFromDeviceOrientation(event);
+        rawHeadingDeg = pose.headingDeg;
+        rawPitchDeg = pose.pitchDeg;
+        rawRollDeg = pose.rollDeg;
+
         if (currentLon == null || currentLat == null) {
+            latestHeadingDeg = rawHeadingDeg;
+            latestPitchDeg = rawPitchDeg;
+            latestRollDeg = rawRollDeg;
             updateSensorText();
             return;
         }
@@ -494,9 +722,13 @@
         viewer.scene.requestRender();
     });
 
-    /*calibrateBtn.addEventListener("click", () => {
-        calibrateForwardView();
-    });*/
+    /*
+    if (calibrateBtn) {
+        calibrateBtn.addEventListener("click", () => {
+            calibrateForwardView();
+        });
+    }
+    */
 
     startBtn.addEventListener("click", async () => {
         try {
@@ -527,6 +759,7 @@
 </script>
 </body>
 </html>
+
 
 
 
