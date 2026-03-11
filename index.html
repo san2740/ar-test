@@ -96,10 +96,11 @@
 
 <div id="ui">
     <div id="ui_box" style="display: block">
-        <div><b>Cesium AR Overlay Demo</b></div>
+        <div><b>Cesium AR Overlay</b></div>
         <div id="status">초기화 대기중...</div>
 
         <button id="startBtn">카메라 / 위치 / 센서 시작</button>
+        <button id="toggleCesiumBtn">세슘 숨기기</button>
         <!-- <button id="calibrateBtn">정면 기준 보정</button> -->
 
         <div class="row">
@@ -148,6 +149,9 @@
     const pitchVal = document.getElementById("pitchVal");
     const heightVal = document.getElementById("heightVal");
     const fovVal = document.getElementById("fovVal");
+
+    const toggleCesiumBtn = document.getElementById("toggleCesiumBtn");
+    let cesiumVisible = true;
 
     let currentLon = null;
     let currentLat = null;
@@ -670,6 +674,23 @@
         applyCameraPose();
     }
 
+    function setCesiumVisibility(visible) {
+        cesiumVisible = visible;
+    
+        const container = document.getElementById("cesiumContainer");
+        container.style.display = visible ? "block" : "none";
+    
+        toggleCesiumBtn.innerText = visible ? "세슘 숨기기" : "세슘 보이기";
+    }
+    
+    function toggleCesiumVisibility() {
+        setCesiumVisibility(!cesiumVisible);
+    }
+    
+    toggleCesiumBtn.addEventListener("click", () => {
+        toggleCesiumVisibility();
+    });
+    
     async function requestiOSMotionPermissionIfNeeded() {
         if (
             typeof DeviceOrientationEvent !== "undefined" &&
@@ -759,6 +780,7 @@
 </script>
 </body>
 </html>
+
 
 
 
