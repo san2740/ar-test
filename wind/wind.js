@@ -1,29 +1,59 @@
-import * as Cesium from "cesium";
-import ComputePrimitive from "@/modules/compute/ComputePrimitive";
-import RenderPrimitive from "@/modules/compute/RenderPrimitive";
-import { LonLatAltVolume } from "../compute/Volume";
+import * as Cesium from "https://cdn.jsdelivr.net/npm/cesium@1.118/+esm";
+import ComputePrimitive from "./compute/ComputePrimitive.js";
+import RenderPrimitive from "./compute/RenderPrimitive.js";
+import { LonLatAltVolume } from "./compute/Volume.js";
+import { kas as kasGridDef } from "./lambert_conformal_conic_grids.js";
 
-import fragmentShader_calculateWindPosition from '@/modules/wind/glsl/calculateWindPosition.frag?raw';
-import fragmentShader_calculateWindPosition_lcc from '@/modules/wind/glsl/calculateWindPosition_lcc.frag?raw';
-import fragmentShader_calculateWindColor from '@/modules/wind/glsl/calculateWindColor.frag?raw';
+async function loadText(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`파일 로드 실패: ${url}`);
+  return await res.text();
+}
 
-import fragmentShader_normalized2ecef from '@/modules/wind/glsl/normalized2ecef.frag?raw';
+const fragmentShader_calculateWindPosition =
+  await loadText('./wind/glsl/calculateWindPosition.frag');
 
+const fragmentShader_calculateWindPosition_lcc =
+  await loadText('./wind/glsl/calculateWindPosition_lcc.frag');
 
-import vertexShader_ecef2projected_point from '@/modules/wind/glsl/ecef2projected_point.vert?raw';
-import vertexShader_ecef2projected_point_lcc from '@/modules/wind/glsl/ecef2projected_point_lcc.vert?raw';
-import fragmentShader_ecef2projected_point from '@/modules/wind/glsl/ecef2projected_point.frag?raw';
-import vertexShader_ecef2projected_line from '@/modules/wind/glsl/ecef2projected_line.vert?raw';
-import vertexShader_ecef2projected_line_lcc from '@/modules/wind/glsl/ecef2projected_line_lcc.vert?raw';
-import fragmentShader_ecef2projected_line from '@/modules/wind/glsl/ecef2projected_line.frag?raw';
-import vertexShader_ecef2projected_triangle from '@/modules/wind/glsl/ecef2projected_triangle.vert?raw';
-import vertexShader_ecef2projected_triangle_lcc from '@/modules/wind/glsl/ecef2projected_triangle_lcc.vert?raw';
-import fragmentShader_ecef2projected_triangle from '@/modules/wind/glsl/ecef2projected_triangle.frag?raw';
+const fragmentShader_calculateWindColor =
+  await loadText('./wind/glsl/calculateWindColor.frag');
 
-import vertexShader_fullscreen from '@/modules/wind/glsl/fullscreen.vert?raw';
-import fragmentShader_screenDraw from '@/modules/wind/glsl/screenDraw.frag?raw';
+const fragmentShader_normalized2ecef =
+  await loadText('./wind/glsl/normalized2ecef.frag');
 
-import { kas as kasGridDef } from '@/domain/lambert_conformal_conic_grids.js';
+const vertexShader_ecef2projected_point =
+  await loadText('./wind/glsl/ecef2projected_point.vert');
+
+const vertexShader_ecef2projected_point_lcc =
+  await loadText('./wind/glsl/ecef2projected_point_lcc.vert');
+
+const fragmentShader_ecef2projected_point =
+  await loadText('./wind/glsl/ecef2projected_point.frag');
+
+const vertexShader_ecef2projected_line =
+  await loadText('./wind/glsl/ecef2projected_line.vert');
+
+const vertexShader_ecef2projected_line_lcc =
+  await loadText('./wind/glsl/ecef2projected_line_lcc.vert');
+
+const fragmentShader_ecef2projected_line =
+  await loadText('./wind/glsl/ecef2projected_line.frag');
+
+const vertexShader_ecef2projected_triangle =
+  await loadText('./wind/glsl/ecef2projected_triangle.vert');
+
+const vertexShader_ecef2projected_triangle_lcc =
+  await loadText('./wind/glsl/ecef2projected_triangle_lcc.vert');
+
+const fragmentShader_ecef2projected_triangle =
+  await loadText('./wind/glsl/ecef2projected_triangle.frag');
+
+const vertexShader_fullscreen =
+  await loadText('./wind/glsl/fullscreen.vert');
+
+const fragmentShader_screenDraw =
+  await loadText('./wind/glsl/screenDraw.frag');
 
 export default class Wind {
     static MIN_TRAIL_LENGTH = 2;
@@ -916,5 +946,6 @@ export default class Wind {
 
         return geometry;
     }
+
 
 }
