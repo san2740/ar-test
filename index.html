@@ -1236,37 +1236,76 @@
                 statusEl.textContent = "바람 데이터 불러오는 중...";
                 showToast("wind.json 로드중...");
         
+                if (!window.WindModule || !window.WindModule.Wind) {
+                    throw new Error("wind.js 모듈이 아직 로드되지 않았습니다.");
+                }
+        
                 if (!windJsonCache) {
                     windJsonCache = await loadWindJson();
                 }
         
-                console.log("wind.json:", windJsonCache);
-        
-                // 가장 단순한 구조 지원:
-                // {
-                //   "data": [
-                //     { "lon": 126.97, "lat": 37.56, "alt": 20, "u": 1.2, "v": -0.8, "w": 0.0 }
-                //   ]
-                // }
-        
-                if (Array.isArray(windJsonCache.data)) {
-                    drawWindFromSimpleData(windJsonCache.data);
-                    statusEl.textContent = `바람 표시 완료 (${windJsonCache.data.length}개)`;
-                    showToast("바람 표시 완료");
-                    return;
+                if (windVisual) {
+                    clearWindEntities();
                 }
         
-                // 혹시 배열 자체가 바로 들어있는 경우
-                if (Array.isArray(windJsonCache)) {
-                    drawWindFromSimpleData(windJsonCache);
-                    statusEl.textContent = `바람 표시 완료 (${windJsonCache.length}개)`;
-                    showToast("바람 표시 완료");
-                    return;
+                const Wind = window.WindModule.Wind;
+        
+                windVisual = new Wind(viewer, viewer.scene.context, {
+                    dimension: windJsonCache.dimensions,
+                    altitudes: windJsonCache.altitudes,
+                    uvws: {
+                        u: windJsonCache.us,
+                        v: windJsonCache.vs,
+                        w: windJsonCache.ws,
+                    },
+                    valueMinMax: [
+                        windJsonCache.uMinMax,
+                        windJsonCache.vMinMax,
+                        windJsonCache.wMinMax,
+                    ],
+                    velocityMinMax: windJsonCache.valueMinMax,
+                    boundary: windJsonCache.boundaries,
+                    textureSize: Math.round(
+                        Math.sqrt(windJsonCache.dimensions[0] * windJsonCache.dimensions[1])
+                    ),
+                    renderingType: "point",
+                    point: {
+                        pointSize: 5,
+                    },
+                    triangle: {
+                        lineWidth: 5000.0,
+                    },
+                    projection: "regular",
+                    speedFactor: 200.0,
+                    verticalScale: 1.0,
+                    wens: "0,0,0,0"
+                });
+        
+                if (typeof windVisual.updateParameters === "function") {
+                    windVisual.updateParameters({
+                        speedFactor: 200.0,
+                        verticalScale: 1.0,
+                        particleRate: 1.0,
+                        colorMode: "windspeed",
+                        speedRange: 10,
+                        model: "KIM",
+                        clipping: [0, 1, 0, 1, 0, 1],
+                        filter: [0, 1, 0, 1, 0, 1],
+                        velocityFilter: [0, 999],
+                        highlights: [],
+                        wens: [0, 0, 0, 0]
+                    });
                 }
         
-                console.warn("지원되지 않는 wind.json 구조", windJsonCache);
-                statusEl.textContent = "wind.json 구조를 확인해야 함";
-                showToast("wind.json 구조가 예상과 다름", 3000);
+                if (typeof windVisual.getPrimitiveCollection === "function") {
+                    const primitives = windVisual.getPrimitiveCollection();
+                    viewer.scene.primitives.add(primitives);
+                    windEntities.push(primitives);
+                }
+        
+                windVisible = true;
+                statusEl.textContent = "wind.js 바람 표시 완료";
+                showToast("바람 표시 완료");
         
             } catch (e) {
                 console.error(e);
@@ -1276,7 +1315,16 @@
         }
         
         function hideWind() {
+            if (windVisual && typeof windVisual.destroy === "function") {
+                try {
+                    windVisual.destroy();
+                } catch (e) {
+                    console.warn(e);
+                }
+            }
+        
             clearWindEntities();
+            windVisual = null;
             statusEl.textContent = "바람 표시 제거";
             showToast("바람 지움");
         }
@@ -1905,6 +1953,7 @@
     }
 </style>
 </html>
+
 
 
 
