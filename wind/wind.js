@@ -74,8 +74,6 @@ export default class Wind {
             timeScale: 3,
             timeScaleCounter: 0, // for time scale
 
-            // KAS 모델 Lambert Conformal Coninc 프로젝션용 상수
-            lambertConformalConic: kasGridDef
         }, options, {
             trailLength: options.trailLength ? Math.max(Wind.MIN_TRAIL_LENGTH, Math.min(Wind.MAX_TRAIL_LENGTH, options.trailLength)) : 10,   // position buffer length (for position history)
         });
@@ -947,5 +945,6 @@ export default class Wind {
 
 
 }
+
 
 
