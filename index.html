@@ -7,8 +7,8 @@
 
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
     <link
-        href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css"
-        rel="stylesheet"
+            href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css"
+            rel="stylesheet"
     />
 
     <style>
@@ -182,7 +182,7 @@
             position: absolute;
             left: 12px;
             top: 62px;
-            width: 360px;
+            width: 320px;
             max-width: calc(100vw - 24px);
             max-height: calc(100vh - 160px);
             overflow-y: auto;
@@ -532,8 +532,9 @@
 
         @media (max-width: 768px) {
             .left-panel {
-                width: calc(100vw - 24px);
-                max-height: 46vh;
+                width: 280px;
+                max-width: calc(100vw - 24px);
+                max-height: 42vh;
             }
 
             .bottom-bar {
@@ -557,69 +558,68 @@
         <div class="live-badge" id="liveBadge"><span class="dot"></span>AR</div>
     </div>
 
-    <div class="left-panel">
+    <div class="left-panel" id="leftPanel">
         <div class="panel">
-            <h3>상태</h3>
-            <div class="status" id="status">초기화 대기중...</div>
-
-            <div class="hstack">
-                <button class="btn success" id="startBtn">AR 시작</button>
-                <button class="btn danger" id="stopBtn">AR 종료</button>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <h3 style="margin:0;">상태 / 보정 / 메모</h3>
+                <button class="btn secondary small" id="panelToggleBtn" type="button">닫기</button>
             </div>
 
-            <button class="btn secondary" id="locateBtn">현재 위치로 이동</button>
+            <div id="leftPanelBody" style="margin-top:10px;">
+                <div class="status" id="status">초기화 대기중...</div>
 
-            <div class="row">
-                <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
-                <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
-            </div>
+                <div class="row">
+                    <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
+                    <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
+                </div>
 
-            <div class="row">
-                <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
-                <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
-            </div>
+                <div class="row">
+                    <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
+                    <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
+                </div>
 
-            <div class="row">
-                <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
-                <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
-            </div>
+                <div class="row">
+                    <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
+                    <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
+                </div>
 
-            <div class="row">
-                <div class="label"><span>Tileset Height (m)</span><span id="tilesetHeightVal">0</span></div>
-                <input id="tilesetHeightOffset" type="range" min="-150" max="150" step="1" value="0" />
-            </div>
+                <div class="row">
+                    <div class="label"><span>Tileset Height (m)</span><span id="tilesetHeightVal">0</span></div>
+                    <input id="tilesetHeightOffset" type="range" min="-150" max="150" step="1" value="0" />
+                </div>
 
-            <div class="row">
-                <div class="label"><span>FOV</span><span id="fovVal">60</span></div>
-                <input id="fovRange" type="range" min="35" max="80" step="1" value="60" />
-            </div>
+                <div class="row">
+                    <div class="label"><span>FOV</span><span id="fovVal">60</span></div>
+                    <input id="fovRange" type="range" min="35" max="80" step="1" value="60" />
+                </div>
 
-            <div class="row">
-                <div class="hstack">
-                    <button class="btn secondary" id="calibrateBtn">현재 자세 기준 보정</button>
-                    <button class="btn secondary" id="resetCalibrateBtn">보정 초기화</button>
+                <div class="row">
+                    <div class="hstack">
+                        <button class="btn secondary" id="calibrateBtn">현재 자세 기준 보정</button>
+                        <button class="btn secondary" id="resetCalibrateBtn">보정 초기화</button>
+                    </div>
+                </div>
+
+                <div class="small" id="coordText">현재 좌표: 아직 없음</div>
+                <div class="small" id="sensorText">센서값: 아직 없음</div>
+                <div class="small" id="tilesetText">타일셋: 아직 없음</div>
+
+                <div class="panel" style="margin:12px 0 0 0;">
+                    <h3>위치 메모</h3>
+                    <input id="noteInput" type="text" placeholder="현재 위치에 저장할 글 입력" />
+                    <button class="btn" id="saveNoteBtn">현재 위치에 글 저장</button>
+                    <div class="hint">현재 GPS 좌표에 저장됩니다. 새로고침 후에도 유지됩니다.</div>
+
+                    <button class="btn danger" id="clearNotesBtn">저장된 글 전체 삭제</button>
+
+                    <div id="noteList"></div>
                 </div>
             </div>
-
-            <div class="small" id="coordText">현재 좌표: 아직 없음</div>
-            <div class="small" id="sensorText">센서값: 아직 없음</div>
-            <div class="small" id="tilesetText">타일셋: 아직 없음</div>
-        </div>
-
-        <div class="panel">
-            <h3>위치 메모</h3>
-            <input id="noteInput" type="text" placeholder="현재 위치에 저장할 글 입력" />
-            <button class="btn" id="saveNoteBtn">현재 위치에 글 저장</button>
-            <div class="hint">현재 GPS 좌표에 저장됩니다. 새로고침 후에도 유지됩니다.</div>
-
-            <button class="btn danger" id="clearNotesBtn">저장된 글 전체 삭제</button>
-
-            <div id="noteList"></div>
         </div>
     </div>
 
     <div class="bottom-bar">
-        <div class="chip">
+        <div class="chip" id="gpsChip" style="cursor:pointer;">
             <div class="chip-row"><span class="chip-label">위도</span><span id="latEl">—</span></div>
             <div class="chip-row"><span class="chip-label">경도</span><span id="lonEl">—</span></div>
             <div class="chip-row"><span class="chip-label">정확도</span><span id="accEl">—</span></div>
@@ -669,9 +669,8 @@
     const sensorTextEl = document.getElementById("sensorText");
     const tilesetTextEl = document.getElementById("tilesetText");
     const videoEl = document.getElementById("cameraVideo");
-    const startBtn = document.getElementById("startBtn");
-    const stopBtn = document.getElementById("stopBtn");
-    const locateBtn = document.getElementById("locateBtn");
+    const panelToggleBtn = document.getElementById("panelToggleBtn");
+    const leftPanelBody = document.getElementById("leftPanelBody");
     const arToggleBtn = document.getElementById("arToggleBtn");
     const liveBadgeEl = document.getElementById("liveBadge");
 
@@ -1635,10 +1634,10 @@
         if (e.key === "Enter") saveNoteBtn.click();
     });
 
-    startBtn.addEventListener("click", startAR);
-    stopBtn.addEventListener("click", stopAR);
+    document.getElementById("calibrateBtn").addEventListener("click", captureCalibrationPose);
+    document.getElementById("resetCalibrateBtn").addEventListener("click", resetCalibration);
 
-    locateBtn.addEventListener("click", async () => {
+    document.getElementById("gpsChip").addEventListener("click", async () => {
         if (currentLon == null || currentLat == null) {
             showToast("현재 위치가 아직 없습니다.");
             return;
@@ -1649,8 +1648,13 @@
         showToast("현재 위치로 이동");
     });
 
-    document.getElementById("calibrateBtn").addEventListener("click", captureCalibrationPose);
-    document.getElementById("resetCalibrateBtn").addEventListener("click", resetCalibration);
+    let leftPanelOpen = true;
+
+    panelToggleBtn.addEventListener("click", () => {
+        leftPanelOpen = !leftPanelOpen;
+        leftPanelBody.style.display = leftPanelOpen ? "block" : "none";
+        panelToggleBtn.textContent = leftPanelOpen ? "닫기" : "열기";
+    });
 
     arToggleBtn.addEventListener("click", () => {
         if (arMode) stopAR();
@@ -1758,3 +1762,4 @@
 </script>
 </body>
 </html>
+
