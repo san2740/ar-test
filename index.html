@@ -61,6 +61,13 @@
                         </div>
                     </div>
 
+                    <div class="row">
+                        <div class="hstack">
+                            <button class="btn success" id="loadWindBtn">바람 불러오기</button>
+                            <button class="btn secondary" id="clearWindBtn">바람 지우기</button>
+                        </div>
+                    </div>
+
                     <div class="small" id="coordText">현재 좌표: 아직 없음</div>
                     <div class="small" id="sensorText">센서값: 아직 없음</div>
                     <div class="small" id="tilesetText">타일셋: 아직 없음</div>
@@ -198,6 +205,13 @@
         let toastTimer = null;
         let notes = [];
 
+        let toastTimer = null;
+        let notes = [];
+
+        let windEntities = [];
+        let windVisible = false;
+        let windJsonCache = null;
+        
         const viewer = new Cesium.Viewer("cesiumContainer", {
             animation: false,
             timeline: false,
@@ -1138,6 +1152,149 @@
             debugLogEl.scrollTop = debugLogEl.scrollHeight;
         }
 
+        async function loadWindJson() {
+            const res = await fetch("./wind.json");
+            if (!res.ok) {
+                throw new Error(`wind.json 로드 실패: ${res.status}`);
+            }
+            return await res.json();
+        }
+        
+        function clearWindEntities() {
+            windEntities.forEach(entity => viewer.entities.remove(entity));
+            windEntities = [];
+            windVisible = false;
+        }
+        
+        function getWindColorBySpeed(speed) {
+            if (speed < 2) return Cesium.Color.CYAN;
+            if (speed < 5) return Cesium.Color.LIME;
+            if (speed < 8) return Cesium.Color.YELLOW;
+            if (speed < 12) return Cesium.Color.ORANGE;
+            return Cesium.Color.RED;
+        }
+        
+        function drawWindFromSimpleData(data) {
+            clearWindEntities();
+        
+            data.forEach((p) => {
+                const lon = Number(p.lon);
+                const lat = Number(p.lat);
+                const alt = Number.isFinite(p.alt) ? Number(p.alt) : (groundHeight + 10);
+        
+                const u = Number(p.u || 0);
+                const v = Number(p.v || 0);
+                const w = Number(p.w || 0);
+        
+                if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+        
+                const speed = Math.sqrt(u * u + v * v + w * w);
+        
+                // 길이 배율 조정
+                const scale = 0.01;
+                const endLon = lon + (u * scale);
+                const endLat = lat + (v * scale);
+                const endAlt = alt + (w * 10.0);
+        
+                const start = Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+                const end = Cesium.Cartesian3.fromDegrees(endLon, endLat, endAlt);
+        
+                const color = getWindColorBySpeed(speed);
+        
+                const pointEntity = viewer.entities.add({
+                    position: start,
+                    point: {
+                        pixelSize: 5,
+                        color: color,
+                        outlineColor: Cesium.Color.BLACK,
+                        outlineWidth: 1
+                    }
+                });
+        
+                const lineEntity = viewer.entities.add({
+                    polyline: {
+                        positions: [start, end],
+                        width: 2,
+                        material: color
+                    }
+                });
+        
+                windEntities.push(pointEntity, lineEntity);
+            });
+        
+            windVisible = true;
+        }
+        
+        async function showWind() {
+            try {
+                statusEl.textContent = "바람 데이터 불러오는 중...";
+                showToast("wind.json 로드중...");
+        
+                if (!windJsonCache) {
+                    windJsonCache = await loadWindJson();
+                }
+        
+                console.log("wind.json:", windJsonCache);
+        
+                // 가장 단순한 구조 지원:
+                // {
+                //   "data": [
+                //     { "lon": 126.97, "lat": 37.56, "alt": 20, "u": 1.2, "v": -0.8, "w": 0.0 }
+                //   ]
+                // }
+        
+                if (Array.isArray(windJsonCache.data)) {
+                    drawWindFromSimpleData(windJsonCache.data);
+                    statusEl.textContent = `바람 표시 완료 (${windJsonCache.data.length}개)`;
+                    showToast("바람 표시 완료");
+                    return;
+                }
+        
+                // 혹시 배열 자체가 바로 들어있는 경우
+                if (Array.isArray(windJsonCache)) {
+                    drawWindFromSimpleData(windJsonCache);
+                    statusEl.textContent = `바람 표시 완료 (${windJsonCache.length}개)`;
+                    showToast("바람 표시 완료");
+                    return;
+                }
+        
+                console.warn("지원되지 않는 wind.json 구조", windJsonCache);
+                statusEl.textContent = "wind.json 구조를 확인해야 함";
+                showToast("wind.json 구조가 예상과 다름", 3000);
+        
+            } catch (e) {
+                console.error(e);
+                statusEl.textContent = "바람 로드 실패: " + e.message;
+                showToast("바람 로드 실패: " + e.message, 3200);
+            }
+        }
+        
+        function hideWind() {
+            clearWindEntities();
+            statusEl.textContent = "바람 표시 제거";
+            showToast("바람 지움");
+        }
+        
+        async function toggleWind() {
+            if (windVisible) {
+                hideWind();
+            } else {
+                await showWind();
+            }
+        }
+
+        document.getElementById("calibrateBtn").addEventListener("click", captureCalibrationPose);
+        document.getElementById("resetCalibrateBtn").addEventListener("click", resetCalibration);
+
+        document.getElementById("loadWindBtn").addEventListener("click", async () => {
+            await showWind();
+        });
+        
+        document.getElementById("clearWindBtn").addEventListener("click", () => {
+            hideWind();
+        });
+        
+
         window.toggleDebug = function() {
             const p = document.getElementById("debugPanel");
             const open = p.style.display !== "none";
@@ -1212,6 +1369,7 @@
             stopOrientationTracking();
             stopCamera();
             stopGeolocation();
+            clearWindEntities();
         });
 
         updateOffsetLabels();
@@ -1744,6 +1902,7 @@
     }
 </style>
 </html>
+
 
 
 
