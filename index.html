@@ -7,6 +7,116 @@
 
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet"/>
+</head>
+<body>
+
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <div id="cesiumContainer"></div>
+    <div id="bubbleLayer"></div>
+
+    <div id="ui">
+        <div class="top-bar">
+            <div class="live-badge" id="liveBadge"><span class="dot"></span>AR</div>
+        </div>
+
+        <div class="left-panel" id="leftPanel">
+            <div class="panel">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                    <h3 style="margin:0;">상태 / 보정 / 메모</h3>
+                    <button class="btn secondary small" id="panelToggleBtn" type="button">닫기</button>
+                </div>
+
+                <div id="leftPanelBody" style="margin-top:10px;">
+                    <div class="status" id="status">초기화 대기중...</div>
+
+                    <div class="row">
+                        <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
+                        <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
+                    </div>
+
+                    <div class="row">
+                        <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
+                        <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
+                    </div>
+
+                    <div class="row">
+                        <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
+                        <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
+                    </div>
+
+                    <div class="row">
+                        <div class="label"><span>Tileset Height (m)</span><span id="tilesetHeightVal">0</span></div>
+                        <input id="tilesetHeightOffset" type="range" min="-150" max="150" step="1" value="0" />
+                    </div>
+
+                    <div class="row">
+                        <div class="label"><span>FOV</span><span id="fovVal">60</span></div>
+                        <input id="fovRange" type="range" min="35" max="80" step="1" value="60" />
+                    </div>
+
+                    <div class="row">
+                        <div class="hstack">
+                            <button class="btn secondary" id="calibrateBtn">현재 자세 기준 보정</button>
+                            <button class="btn secondary" id="resetCalibrateBtn">보정 초기화</button>
+                        </div>
+                    </div>
+
+                    <div class="small" id="coordText">현재 좌표: 아직 없음</div>
+                    <div class="small" id="sensorText">센서값: 아직 없음</div>
+                    <div class="small" id="tilesetText">타일셋: 아직 없음</div>
+
+                    <div class="panel" style="margin:12px 0 0 0;">
+                        <h3>위치 메모</h3>
+                        <input id="noteInput" type="text" placeholder="현재 위치에 저장할 글 입력" />
+                        <button class="btn" id="saveNoteBtn">현재 위치에 글 저장</button>
+                        <div class="hint">현재 GPS 좌표에 저장됩니다. 새로고침 후에도 유지됩니다.</div>
+
+                        <button class="btn danger" id="clearNotesBtn">저장된 글 전체 삭제</button>
+
+                        <div id="noteList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-bar">
+            <div class="chip" id="gpsChip" style="cursor:pointer;">
+                <div class="chip-row"><span class="chip-label">위도</span><span id="latEl">—</span></div>
+                <div class="chip-row"><span class="chip-label">경도</span><span id="lonEl">—</span></div>
+                <div class="chip-row"><span class="chip-label">정확도</span><span id="accEl">—</span></div>
+            </div>
+
+            <button class="ar-toggle off" id="arToggleBtn">AR 시작</button>
+
+            <div class="compass-wrap">
+                <div class="compass">
+                    <span class="compass-n">N</span>
+                    <div class="needle" id="compassNeedle"></div>
+                </div>
+                <span class="deg" id="headEl">—°</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <div id="debugTab">
+        <button onclick="toggleDebug()">DEBUG</button>
+    </div>
+
+    <div class="debug-panel" id="debugPanel">
+        <div class="debug-head">
+            <span class="debug-head-title">AR 디버그</span>
+            <button onclick="toggleDebug()">닫기</button>
+        </div>
+        <div id="debugLog"></div>
+        <div class="debug-actions">
+            <button onclick="debugTestCamera()">카메라</button>
+            <button onclick="debugTestGPS()">GPS</button>
+            <button onclick="debugTestOrientation()">센서</button>
+            <button onclick="document.getElementById('debugLog').innerHTML=''">지우기</button>
+        </div>
+    </div>
 
     <script>
         Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
@@ -1111,115 +1221,6 @@
         updateCoordText();
         updateTilesetText();
     </script>
-</head>
-<body>
-    <video id="cameraVideo" autoplay playsinline muted></video>
-    <div id="cesiumContainer"></div>
-    <div id="bubbleLayer"></div>
-
-    <div id="ui">
-        <div class="top-bar">
-            <div class="live-badge" id="liveBadge"><span class="dot"></span>AR</div>
-        </div>
-
-        <div class="left-panel" id="leftPanel">
-            <div class="panel">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                    <h3 style="margin:0;">상태 / 보정 / 메모</h3>
-                    <button class="btn secondary small" id="panelToggleBtn" type="button">닫기</button>
-                </div>
-
-                <div id="leftPanelBody" style="margin-top:10px;">
-                    <div class="status" id="status">초기화 대기중...</div>
-
-                    <div class="row">
-                        <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
-                        <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
-                    </div>
-
-                    <div class="row">
-                        <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
-                        <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
-                    </div>
-
-                    <div class="row">
-                        <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
-                        <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
-                    </div>
-
-                    <div class="row">
-                        <div class="label"><span>Tileset Height (m)</span><span id="tilesetHeightVal">0</span></div>
-                        <input id="tilesetHeightOffset" type="range" min="-150" max="150" step="1" value="0" />
-                    </div>
-
-                    <div class="row">
-                        <div class="label"><span>FOV</span><span id="fovVal">60</span></div>
-                        <input id="fovRange" type="range" min="35" max="80" step="1" value="60" />
-                    </div>
-
-                    <div class="row">
-                        <div class="hstack">
-                            <button class="btn secondary" id="calibrateBtn">현재 자세 기준 보정</button>
-                            <button class="btn secondary" id="resetCalibrateBtn">보정 초기화</button>
-                        </div>
-                    </div>
-
-                    <div class="small" id="coordText">현재 좌표: 아직 없음</div>
-                    <div class="small" id="sensorText">센서값: 아직 없음</div>
-                    <div class="small" id="tilesetText">타일셋: 아직 없음</div>
-
-                    <div class="panel" style="margin:12px 0 0 0;">
-                        <h3>위치 메모</h3>
-                        <input id="noteInput" type="text" placeholder="현재 위치에 저장할 글 입력" />
-                        <button class="btn" id="saveNoteBtn">현재 위치에 글 저장</button>
-                        <div class="hint">현재 GPS 좌표에 저장됩니다. 새로고침 후에도 유지됩니다.</div>
-
-                        <button class="btn danger" id="clearNotesBtn">저장된 글 전체 삭제</button>
-
-                        <div id="noteList"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="bottom-bar">
-            <div class="chip" id="gpsChip" style="cursor:pointer;">
-                <div class="chip-row"><span class="chip-label">위도</span><span id="latEl">—</span></div>
-                <div class="chip-row"><span class="chip-label">경도</span><span id="lonEl">—</span></div>
-                <div class="chip-row"><span class="chip-label">정확도</span><span id="accEl">—</span></div>
-            </div>
-
-            <button class="ar-toggle off" id="arToggleBtn">AR 시작</button>
-
-            <div class="compass-wrap">
-                <div class="compass">
-                    <span class="compass-n">N</span>
-                    <div class="needle" id="compassNeedle"></div>
-                </div>
-                <span class="deg" id="headEl">—°</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="toast" id="toast"></div>
-
-    <div id="debugTab">
-        <button onclick="toggleDebug()">DEBUG</button>
-    </div>
-
-    <div class="debug-panel" id="debugPanel">
-        <div class="debug-head">
-            <span class="debug-head-title">AR 디버그</span>
-            <button onclick="toggleDebug()">닫기</button>
-        </div>
-        <div id="debugLog"></div>
-        <div class="debug-actions">
-            <button onclick="debugTestCamera()">카메라</button>
-            <button onclick="debugTestGPS()">GPS</button>
-            <button onclick="debugTestOrientation()">센서</button>
-            <button onclick="document.getElementById('debugLog').innerHTML=''">지우기</button>
-        </div>
-    </div>
 
 </body>
 
