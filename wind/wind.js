@@ -1,8 +1,7 @@
 import * as Cesium from "https://cdn.jsdelivr.net/npm/cesium@1.118/+esm";
-import ComputePrimitive from "./compute/ComputePrimitive.js";
-import RenderPrimitive from "./compute/RenderPrimitive.js";
-import { LonLatAltVolume } from "./compute/Volume.js";
-import { kas as kasGridDef } from "./lambert_conformal_conic_grids.js";
+import ComputePrimitive from "../compute/ComputePrimitive.js";
+import RenderPrimitive from "../compute/RenderPrimitive.js";
+import { LonLatAltVolume } from "../compute/Volume.js";
 
 async function loadText(url) {
   const res = await fetch(url);
@@ -949,3 +948,4 @@ export default class Wind {
 
 
 }
+
