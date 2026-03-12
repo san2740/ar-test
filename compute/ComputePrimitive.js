@@ -1,4 +1,3 @@
-
 export default class ComputePrimitive {
     constructor(options) {
         Object.assign(this, options);
@@ -38,3 +37,4 @@ export default class ComputePrimitive {
     }
 
 }
+
