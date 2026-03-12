@@ -64,7 +64,7 @@
 
                     <div class="row">
                         <div class="hstack">
-                            <button class="btn success" id="loadWindBtn">바람 불러오기</button>
+                            <button class="btn success" id="loadWindBtn" disabled>바람 불러오기</button>
                             <button class="btn secondary" id="clearWindBtn">바람 지우기</button>
                         </div>
                     </div>
@@ -209,6 +209,8 @@
         let windEntities = [];
         let windVisible = false;
         let windJsonCache = null;
+
+        let windModuleReady = false;
         
         const viewer = new Cesium.Viewer("cesiumContainer", {
             animation: false,
@@ -1228,7 +1230,7 @@
                 statusEl.textContent = "바람 데이터 불러오는 중...";
                 showToast("wind.json 로드중...");
         
-                if (!window.WindModule || !window.WindModule.Wind) {
+                if (!windModuleReady || !window.WindModule || !window.WindModule.Wind) {
                     throw new Error("wind.js 모듈이 아직 로드되지 않았습니다.");
                 }
         
@@ -1427,9 +1429,14 @@
     <script type="module">
       import Wind from "./wind/wind.js";
     
-      window.WindModule = {
-        Wind
-      };
+      window.WindModule = { Wind };
+      window.windModuleReady = true;
+    
+      const statusEl = document.getElementById("status");
+      const loadWindBtn = document.getElementById("loadWindBtn");
+    
+      if (loadWindBtn) loadWindBtn.disabled = false;
+      if (statusEl) statusEl.textContent = "wind.js 모듈 로드 완료";
     
       console.log("Wind module loaded:", Wind);
     </script>
@@ -1955,6 +1962,7 @@
     }
 </style>
 </html>
+
 
 
 
