@@ -245,12 +245,13 @@
             }
         });
 
-        viewer.scene.backgroundColor = Cesium.Color.TRANSPARENT;
-        viewer.scene.skyBox.show = false;
-        viewer.scene.skyAtmosphere.show = false;
-        viewer.scene.globe.baseColor = Cesium.Color.TRANSPARENT;
-        viewer.scene.globe.showGroundAtmosphere = false;
-        viewer.scene.globe.show = false;
+        viewer.scene.backgroundColor = Cesium.Color.BLACK;
+        viewer.scene.skyBox.show = true;
+        viewer.scene.skyAtmosphere.show = true;
+        viewer.scene.globe.baseColor = Cesium.Color.DARKBLUE;
+        viewer.scene.globe.showGroundAtmosphere = true;
+        viewer.scene.globe.show = true;
+        
         viewer.cesiumWidget.creditContainer.style.display = "none";
         viewer.scene.requestRenderMode = false;
 
@@ -1996,6 +1997,7 @@
     }
 </style>
 </html>
+
 
 
 
