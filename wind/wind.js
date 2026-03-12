@@ -1,4 +1,3 @@
-import * as Cesium from "https://cdn.jsdelivr.net/npm/cesium@1.118/+esm";
 import ComputePrimitive from "../compute/ComputePrimitive.js";
 import RenderPrimitive from "../compute/RenderPrimitive.js";
 import { LonLatAltVolume } from "../compute/Volume.js";
@@ -948,4 +947,5 @@ export default class Wind {
 
 
 }
+
 
