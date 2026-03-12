@@ -6,1480 +6,849 @@
     <title>Cesium AR Overlay</title>
 
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
-    <link
-            href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css"
-            rel="stylesheet"
-    />
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet"/>
 
-    <style>
-        :root {
-            --accent: #2d7ef7;
-            --danger: #d74c4c;
-            --ok: #22c55e;
-            --warn: #f59e0b;
-            --glass: rgba(0,0,0,0.55);
-            --glass-2: rgba(255,255,255,0.08);
-            --border: rgba(255,255,255,0.15);
-            --text: #fff;
-            --muted: rgba(255,255,255,0.75);
+    <script>
+        Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
+
+        const TILESET_URL = "https://seoul.gaia3d.com:10107/tileset/tn_buld_tiles_merge1/tileset.json";
+        const NOTES_STORAGE_KEY = "ar_notes_v2_integrated";
+        const eyeHeightMeters = 1.6;
+
+        const statusEl = document.getElementById("status");
+        const coordTextEl = document.getElementById("coordText");
+        const sensorTextEl = document.getElementById("sensorText");
+        const tilesetTextEl = document.getElementById("tilesetText");
+        const videoEl = document.getElementById("cameraVideo");
+        const panelToggleBtn = document.getElementById("panelToggleBtn");
+        const leftPanelBody = document.getElementById("leftPanelBody");
+        const arToggleBtn = document.getElementById("arToggleBtn");
+        const liveBadgeEl = document.getElementById("liveBadge");
+
+        const headingOffsetEl = document.getElementById("headingOffset");
+        const pitchOffsetEl = document.getElementById("pitchOffset");
+        const heightOffsetEl = document.getElementById("heightOffset");
+        const tilesetHeightOffsetEl = document.getElementById("tilesetHeightOffset");
+        const fovRangeEl = document.getElementById("fovRange");
+
+        const headingVal = document.getElementById("headingVal");
+        const pitchVal = document.getElementById("pitchVal");
+        const heightVal = document.getElementById("heightVal");
+        const tilesetHeightVal = document.getElementById("tilesetHeightVal");
+        const fovVal = document.getElementById("fovVal");
+
+        const noteInputEl = document.getElementById("noteInput");
+        const saveNoteBtn = document.getElementById("saveNoteBtn");
+        const clearNotesBtn = document.getElementById("clearNotesBtn");
+        const noteListEl = document.getElementById("noteList");
+        const bubbleLayerEl = document.getElementById("bubbleLayer");
+
+        const latEl = document.getElementById("latEl");
+        const lonEl = document.getElementById("lonEl");
+        const accEl = document.getElementById("accEl");
+        const headEl = document.getElementById("headEl");
+        const compassNeedleEl = document.getElementById("compassNeedle");
+
+        let currentLon = null;
+        let currentLat = null;
+        let currentHeight = null;
+        let currentAccuracy = null;
+        let groundHeight = 0;
+
+        let gpsStarted = false;
+        let orientationStarted = false;
+        let cameraStarted = false;
+        let arMode = false;
+
+        let watchId = null;
+        let cameraStream = null;
+        let hasFirstGpsFix = false;
+
+        let lastAlpha = 0;
+        let lastBeta = 0;
+        let lastGamma = 0;
+
+        let rawHeadingDeg = 0;
+        let rawPitchDeg = 0;
+        let rawRollDeg = 0;
+
+        let latestHeadingDeg = 0;
+        let latestPitchDeg = 0;
+        let latestRollDeg = 0;
+
+        let calibratedHeading = 0;
+        let calibratedPitch = 0;
+        let calibratedRoll = 0;
+
+        let customTileset = null;
+        let lastTerrainSampleLon = null;
+        let lastTerrainSampleLat = null;
+        let lastTerrainSampleTime = 0;
+
+        let toastTimer = null;
+        let notes = [];
+
+        const viewer = new Cesium.Viewer("cesiumContainer", {
+            animation: false,
+            timeline: false,
+            baseLayerPicker: false,
+            geocoder: false,
+            homeButton: false,
+            infoBox: false,
+            sceneModePicker: false,
+            navigationHelpButton: false,
+            fullscreenButton: false,
+            selectionIndicator: false,
+            shouldAnimate: true,
+            terrain: Cesium.Terrain.fromWorldTerrain(),
+            contextOptions: {
+                webgl: {
+                    alpha: true
+                }
+            }
+        });
+
+        viewer.scene.backgroundColor = Cesium.Color.TRANSPARENT;
+        viewer.scene.skyBox.show = false;
+        viewer.scene.skyAtmosphere.show = false;
+        viewer.scene.globe.baseColor = Cesium.Color.TRANSPARENT;
+        viewer.scene.globe.showGroundAtmosphere = false;
+        viewer.scene.globe.show = false;
+        viewer.cesiumWidget.creditContainer.style.display = "none";
+        viewer.scene.requestRenderMode = false;
+
+        viewer.camera.frustum.fov = Cesium.Math.toRadians(60);
+        viewer.camera.frustum.near = 0.1;
+        viewer.camera.frustum.far = 5000.0;
+
+        const ssc = viewer.scene.screenSpaceCameraController;
+        ssc.enableRotate = false;
+        ssc.enableTranslate = false;
+        ssc.enableZoom = false;
+        ssc.enableTilt = false;
+        ssc.enableLook = false;
+        ssc.enableInputs = false;
+
+        function normalizeDegrees(deg) {
+            let d = deg % 360;
+            if (d < 0) d += 360;
+            return d;
         }
 
-        html, body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            font-family: sans-serif;
+        function clamp(v, min, max) {
+            return Math.max(min, Math.min(max, v));
         }
 
-        #cameraVideo {
-            position: fixed;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            background: #000;
-            z-index: 0;
-            display: none;
+        function showToast(msg, ms = 2500) {
+            const el = document.getElementById("toast");
+            el.textContent = msg;
+            el.classList.add("show");
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove("show"), ms);
         }
 
-        #cesiumContainer {
-            position: fixed;
-            inset: 0;
-            z-index: 1;
-            background: transparent !important;
+        function updateOffsetLabels() {
+            headingVal.textContent = headingOffsetEl.value;
+            pitchVal.textContent = pitchOffsetEl.value;
+            heightVal.textContent = heightOffsetEl.value;
+            tilesetHeightVal.textContent = tilesetHeightOffsetEl.value;
+            fovVal.textContent = fovRangeEl.value;
         }
 
-        #cesiumContainer canvas {
-            background: transparent !important;
-        }
+        function updateGPSChip() {
+            latEl.textContent = currentLat == null ? "—" : currentLat.toFixed(6);
+            lonEl.textContent = currentLon == null ? "—" : currentLon.toFixed(6);
 
-        #bubbleLayer {
-            position: fixed;
-            inset: 0;
-            z-index: 20;
-            pointer-events: none;
-        }
-
-        .bubble {
-            position: fixed;
-            transform: translate(-50%, -100%);
-            background: white;
-            color: black;
-            border: 3px solid black;
-            border-radius: 22px;
-            padding: 12px 18px;
-            font-size: 18px;
-            font-weight: 700;
-            line-height: 1.25;
-            white-space: pre-line;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.18);
-            max-width: 220px;
-            text-align: center;
-            display: none;
-            pointer-events: none;
-        }
-
-        .bubble::after {
-            content: "";
-            position: absolute;
-            left: 50%;
-            bottom: -14px;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 12px solid transparent;
-            border-right: 12px solid transparent;
-            border-top: 14px solid black;
-        }
-
-        .bubble::before {
-            content: "";
-            position: absolute;
-            left: 50%;
-            bottom: -10px;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 9px solid transparent;
-            border-right: 9px solid transparent;
-            border-top: 11px solid white;
-            z-index: 1;
-        }
-
-        #ui {
-            position: fixed;
-            inset: 0;
-            z-index: 100;
-            pointer-events: none;
-        }
-
-        .panel, .btn, .chip, .toast, .debug-panel {
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-
-        .top-bar {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            right: 12px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            pointer-events: auto;
-        }
-
-        .live-badge {
-            display: none;
-            align-items: center;
-            gap: 6px;
-            background: rgba(45,126,247,0.9);
-            border-radius: 999px;
-            padding: 10px 14px;
-            color: #fff;
-            font-size: 12px;
-            font-weight: 700;
-        }
-
-        .live-badge.show {
-            display: inline-flex;
-        }
-
-        .dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #fff;
-            animation: blink 1.2s ease-in-out infinite;
-        }
-
-        @keyframes blink {
-            0%,100% { opacity: 1; }
-            50% { opacity: 0.35; }
-        }
-
-        .left-panel {
-            position: absolute;
-            left: 12px;
-            top: 62px;
-            width: 320px;
-            max-width: calc(100vw - 24px);
-            max-height: calc(100vh - 160px);
-            overflow-y: auto;
-            pointer-events: auto;
-        }
-
-        .panel {
-            background: var(--glass);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 12px;
-            margin-bottom: 10px;
-        }
-
-        .panel h3 {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-        }
-
-        .status {
-            font-size: 13px;
-            color: var(--muted);
-            margin-bottom: 8px;
-            line-height: 1.45;
-            word-break: break-word;
-        }
-
-        .row {
-            margin-top: 10px;
-        }
-
-        .label {
-            display: flex;
-            justify-content: space-between;
-            gap: 8px;
-            margin-bottom: 4px;
-            font-size: 12px;
-            color: var(--muted);
-        }
-
-        .btn {
-            width: 100%;
-            border: none;
-            border-radius: 10px;
-            padding: 11px 12px;
-            margin-top: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 700;
-            background: var(--accent);
-            color: #fff;
-        }
-
-        .btn.secondary {
-            background: #555;
-        }
-
-        .btn.danger {
-            background: var(--danger);
-        }
-
-        .btn.success {
-            background: var(--ok);
-        }
-
-        .btn.small {
-            width: auto;
-            padding: 8px 10px;
-            font-size: 12px;
-            margin-top: 0;
-        }
-
-        input[type="range"],
-        input[type="text"] {
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        input[type="text"] {
-            border: none;
-            border-radius: 10px;
-            padding: 10px 12px;
-            font-size: 14px;
-        }
-
-        input[type="range"] {
-            accent-color: var(--accent);
-        }
-
-        .small {
-            margin-top: 6px;
-            font-size: 12px;
-            color: var(--muted);
-            word-break: break-all;
-            line-height: 1.45;
-        }
-
-        .hint {
-            margin-top: 4px;
-            font-size: 11px;
-            color: rgba(255,255,255,0.68);
-            line-height: 1.4;
-        }
-
-        .hstack {
-            display: flex;
-            gap: 8px;
-        }
-
-        .hstack .btn {
-            flex: 1;
-        }
-
-        .bottom-bar {
-            position: absolute;
-            left: 12px;
-            right: 12px;
-            bottom: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            gap: 12px;
-            pointer-events: auto;
-        }
-
-        .chip {
-            background: var(--glass);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 10px 12px;
-            min-width: 130px;
-            font-size: 12px;
-            line-height: 1.6;
-        }
-
-        .chip-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 8px;
-        }
-
-        .chip-label {
-            color: var(--muted);
-        }
-
-        .acc-good { color: #4ade80; }
-        .acc-ok   { color: #fbbf24; }
-        .acc-bad  { color: #f87171; }
-
-        .ar-toggle {
-            border: none;
-            border-radius: 999px;
-            padding: 14px 18px;
-            font-size: 15px;
-            font-weight: 800;
-            cursor: pointer;
-            background: var(--accent);
-            color: #fff;
-            box-shadow: 0 6px 20px rgba(45,126,247,0.35);
-            min-width: 180px;
-        }
-
-        .ar-toggle.off {
-            background: var(--accent);
-        }
-
-        .ar-toggle.on {
-            background: var(--danger);
-            box-shadow: 0 6px 20px rgba(215,76,76,0.35);
-        }
-
-        .compass-wrap {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .compass {
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            background: var(--glass);
-            border: 1px solid var(--border);
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .compass-n {
-            position: absolute;
-            top: 6px;
-            font-size: 9px;
-            font-weight: 800;
-            color: #f87171;
-        }
-
-        .needle {
-            width: 2px;
-            height: 20px;
-            position: absolute;
-            left: calc(50% - 1px);
-            bottom: 50%;
-            transform-origin: bottom center;
-            border-radius: 2px;
-            background: linear-gradient(to top, rgba(255,255,255,0.25) 50%, #f87171 50%);
-        }
-
-        .deg {
-            font-size: 11px;
-            color: var(--muted);
-        }
-
-        #noteList {
-            margin-top: 8px;
-            max-height: 180px;
-            overflow-y: auto;
-            border-top: 1px solid rgba(255,255,255,0.16);
-            padding-top: 8px;
-        }
-
-        .note-item {
-            background: rgba(255,255,255,0.08);
-            padding: 8px;
-            border-radius: 10px;
-            margin-bottom: 6px;
-            font-size: 12px;
-            line-height: 1.45;
-        }
-
-        .note-actions {
-            display: flex;
-            gap: 6px;
-            margin-top: 6px;
-        }
-
-        .note-actions button {
-            flex: 1;
-            margin-top: 0;
-            padding: 7px 8px;
-            font-size: 12px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            color: #fff;
-            background: #555;
-        }
-
-        .note-actions button.danger {
-            background: var(--danger);
-        }
-
-        .toast {
-            position: fixed;
-            left: 50%;
-            bottom: 88px;
-            transform: translateX(-50%) translateY(12px);
-            background: rgba(10,18,40,0.92);
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 12px;
-            padding: 11px 16px;
-            z-index: 200;
-            font-size: 13px;
-            opacity: 0;
-            transition: opacity 0.2s, transform 0.2s;
-            pointer-events: none;
-            white-space: nowrap;
-        }
-
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-
-        #debugTab {
-            position: fixed;
-            top: 50%;
-            right: 0;
-            transform: translateY(-50%);
-            z-index: 300;
-            pointer-events: auto;
-        }
-
-        #debugTab button {
-            background: rgba(251,191,36,0.9);
-            border: none;
-            color: #000;
-            font-size: 10px;
-            font-weight: 800;
-            padding: 6px 8px;
-            border-radius: 6px 0 0 6px;
-            cursor: pointer;
-            writing-mode: vertical-rl;
-            letter-spacing: 1px;
-        }
-
-        .debug-panel {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 299;
-            background: rgba(0,0,0,0.92);
-            color: #4ade80;
-            padding: 56px 14px 14px;
-            overflow-y: auto;
-            pointer-events: auto;
-            font-family: monospace;
-            font-size: 11px;
-            line-height: 1.8;
-        }
-
-        .debug-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .debug-head-title {
-            color: #fbbf24;
-            font-weight: 700;
-            font-size: 13px;
-        }
-
-        .debug-head button,
-        .debug-actions button {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.18);
-            color: #fff;
-            padding: 6px 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 11px;
-        }
-
-        .debug-actions {
-            margin-top: 14px;
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        @media (max-width: 768px) {
-            .left-panel {
-                width: 280px;
-                max-width: calc(100vw - 24px);
-                max-height: 42vh;
+            if (currentAccuracy == null) {
+                accEl.textContent = "—";
+                accEl.className = "";
+                return;
             }
 
-            .bottom-bar {
-                align-items: center;
+            const acc = Math.round(currentAccuracy);
+            accEl.textContent = acc + "m";
+            accEl.className = acc < 6 ? "acc-good" : acc < 20 ? "acc-ok" : "acc-bad";
+        }
+
+        function updateCoordText() {
+            if (currentLon == null || currentLat == null) {
+                coordTextEl.textContent = "현재 좌표: 아직 없음";
+                return;
             }
 
-            .ar-toggle {
-                min-width: 150px;
+            coordTextEl.textContent =
+                `현재 좌표: lon=${currentLon.toFixed(6)}, lat=${currentLat.toFixed(6)}, gpsH=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)}, ground=${groundHeight.toFixed(1)}, acc=${currentAccuracy == null ? "n/a" : Math.round(currentAccuracy) + "m"}`;
+        }
+
+        function updateSensorText() {
+            sensorTextEl.textContent =
+                `센서값: alpha=${lastAlpha.toFixed(1)}, beta=${lastBeta.toFixed(1)}, gamma=${lastGamma.toFixed(1)} / heading=${latestHeadingDeg.toFixed(1)}, pitch=${latestPitchDeg.toFixed(1)}, roll=${latestRollDeg.toFixed(1)}`;
+            headEl.textContent = `${Math.round(latestHeadingDeg)}°`;
+            compassNeedleEl.style.transform = `rotate(${-latestHeadingDeg}deg)`;
+        }
+
+        function updateTilesetText() {
+            if (!customTileset) {
+                tilesetTextEl.textContent = "타일셋: 아직 없음";
+                return;
             }
+
+            const center = Cesium.Cartographic.fromCartesian(customTileset.boundingSphere.center);
+            tilesetTextEl.textContent =
+                `타일셋: centerLon=${Cesium.Math.toDegrees(center.longitude).toFixed(6)}, centerLat=${Cesium.Math.toDegrees(center.latitude).toFixed(6)}, centerH=${center.height.toFixed(1)}, offsetH=${Number(tilesetHeightOffsetEl.value).toFixed(1)}`;
         }
-    </style>
-</head>
-<body>
-<video id="cameraVideo" autoplay playsinline muted></video>
-<div id="cesiumContainer"></div>
-<div id="bubbleLayer"></div>
 
-<div id="ui">
-    <div class="top-bar">
-        <div class="live-badge" id="liveBadge"><span class="dot"></span>AR</div>
-    </div>
-
-    <div class="left-panel" id="leftPanel">
-        <div class="panel">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                <h3 style="margin:0;">상태 / 보정 / 메모</h3>
-                <button class="btn secondary small" id="panelToggleBtn" type="button">닫기</button>
-            </div>
-
-            <div id="leftPanelBody" style="margin-top:10px;">
-                <div class="status" id="status">초기화 대기중...</div>
-
-                <div class="row">
-                    <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
-                    <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
-                </div>
-
-                <div class="row">
-                    <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
-                    <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
-                </div>
-
-                <div class="row">
-                    <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
-                    <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
-                </div>
-
-                <div class="row">
-                    <div class="label"><span>Tileset Height (m)</span><span id="tilesetHeightVal">0</span></div>
-                    <input id="tilesetHeightOffset" type="range" min="-150" max="150" step="1" value="0" />
-                </div>
-
-                <div class="row">
-                    <div class="label"><span>FOV</span><span id="fovVal">60</span></div>
-                    <input id="fovRange" type="range" min="35" max="80" step="1" value="60" />
-                </div>
-
-                <div class="row">
-                    <div class="hstack">
-                        <button class="btn secondary" id="calibrateBtn">현재 자세 기준 보정</button>
-                        <button class="btn secondary" id="resetCalibrateBtn">보정 초기화</button>
-                    </div>
-                </div>
-
-                <div class="small" id="coordText">현재 좌표: 아직 없음</div>
-                <div class="small" id="sensorText">센서값: 아직 없음</div>
-                <div class="small" id="tilesetText">타일셋: 아직 없음</div>
-
-                <div class="panel" style="margin:12px 0 0 0;">
-                    <h3>위치 메모</h3>
-                    <input id="noteInput" type="text" placeholder="현재 위치에 저장할 글 입력" />
-                    <button class="btn" id="saveNoteBtn">현재 위치에 글 저장</button>
-                    <div class="hint">현재 GPS 좌표에 저장됩니다. 새로고침 후에도 유지됩니다.</div>
-
-                    <button class="btn danger" id="clearNotesBtn">저장된 글 전체 삭제</button>
-
-                    <div id="noteList"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="bottom-bar">
-        <div class="chip" id="gpsChip" style="cursor:pointer;">
-            <div class="chip-row"><span class="chip-label">위도</span><span id="latEl">—</span></div>
-            <div class="chip-row"><span class="chip-label">경도</span><span id="lonEl">—</span></div>
-            <div class="chip-row"><span class="chip-label">정확도</span><span id="accEl">—</span></div>
-        </div>
-
-        <button class="ar-toggle off" id="arToggleBtn">AR 시작</button>
-
-        <div class="compass-wrap">
-            <div class="compass">
-                <span class="compass-n">N</span>
-                <div class="needle" id="compassNeedle"></div>
-            </div>
-            <span class="deg" id="headEl">—°</span>
-        </div>
-    </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<div id="debugTab">
-    <button onclick="toggleDebug()">DEBUG</button>
-</div>
-
-<div class="debug-panel" id="debugPanel">
-    <div class="debug-head">
-        <span class="debug-head-title">AR 디버그</span>
-        <button onclick="toggleDebug()">닫기</button>
-    </div>
-    <div id="debugLog"></div>
-    <div class="debug-actions">
-        <button onclick="debugTestCamera()">카메라</button>
-        <button onclick="debugTestGPS()">GPS</button>
-        <button onclick="debugTestOrientation()">센서</button>
-        <button onclick="document.getElementById('debugLog').innerHTML=''">지우기</button>
-    </div>
-</div>
-
-<script>
-    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
-
-    const TILESET_URL = "https://seoul.gaia3d.com:10107/tileset/tn_buld_tiles_merge1/tileset.json";
-    const NOTES_STORAGE_KEY = "ar_notes_v2_integrated";
-    const eyeHeightMeters = 1.6;
-
-    const statusEl = document.getElementById("status");
-    const coordTextEl = document.getElementById("coordText");
-    const sensorTextEl = document.getElementById("sensorText");
-    const tilesetTextEl = document.getElementById("tilesetText");
-    const videoEl = document.getElementById("cameraVideo");
-    const panelToggleBtn = document.getElementById("panelToggleBtn");
-    const leftPanelBody = document.getElementById("leftPanelBody");
-    const arToggleBtn = document.getElementById("arToggleBtn");
-    const liveBadgeEl = document.getElementById("liveBadge");
-
-    const headingOffsetEl = document.getElementById("headingOffset");
-    const pitchOffsetEl = document.getElementById("pitchOffset");
-    const heightOffsetEl = document.getElementById("heightOffset");
-    const tilesetHeightOffsetEl = document.getElementById("tilesetHeightOffset");
-    const fovRangeEl = document.getElementById("fovRange");
-
-    const headingVal = document.getElementById("headingVal");
-    const pitchVal = document.getElementById("pitchVal");
-    const heightVal = document.getElementById("heightVal");
-    const tilesetHeightVal = document.getElementById("tilesetHeightVal");
-    const fovVal = document.getElementById("fovVal");
-
-    const noteInputEl = document.getElementById("noteInput");
-    const saveNoteBtn = document.getElementById("saveNoteBtn");
-    const clearNotesBtn = document.getElementById("clearNotesBtn");
-    const noteListEl = document.getElementById("noteList");
-    const bubbleLayerEl = document.getElementById("bubbleLayer");
-
-    const latEl = document.getElementById("latEl");
-    const lonEl = document.getElementById("lonEl");
-    const accEl = document.getElementById("accEl");
-    const headEl = document.getElementById("headEl");
-    const compassNeedleEl = document.getElementById("compassNeedle");
-
-    let currentLon = null;
-    let currentLat = null;
-    let currentHeight = null;
-    let currentAccuracy = null;
-    let groundHeight = 0;
-
-    let gpsStarted = false;
-    let orientationStarted = false;
-    let cameraStarted = false;
-    let arMode = false;
-
-    let watchId = null;
-    let cameraStream = null;
-    let hasFirstGpsFix = false;
-
-    let lastAlpha = 0;
-    let lastBeta = 0;
-    let lastGamma = 0;
-
-    let rawHeadingDeg = 0;
-    let rawPitchDeg = 0;
-    let rawRollDeg = 0;
-
-    let latestHeadingDeg = 0;
-    let latestPitchDeg = 0;
-    let latestRollDeg = 0;
-
-    let calibratedHeading = 0;
-    let calibratedPitch = 0;
-    let calibratedRoll = 0;
-
-    let customTileset = null;
-    let lastTerrainSampleLon = null;
-    let lastTerrainSampleLat = null;
-    let lastTerrainSampleTime = 0;
-
-    let toastTimer = null;
-    let notes = [];
-
-    const viewer = new Cesium.Viewer("cesiumContainer", {
-        animation: false,
-        timeline: false,
-        baseLayerPicker: false,
-        geocoder: false,
-        homeButton: false,
-        infoBox: false,
-        sceneModePicker: false,
-        navigationHelpButton: false,
-        fullscreenButton: false,
-        selectionIndicator: false,
-        shouldAnimate: true,
-        terrain: Cesium.Terrain.fromWorldTerrain(),
-        contextOptions: {
-            webgl: {
-                alpha: true
+        function getScreenOrientationAngleDeg() {
+            if (screen.orientation && typeof screen.orientation.angle === "number") {
+                return screen.orientation.angle;
             }
-        }
-    });
-
-    viewer.scene.backgroundColor = Cesium.Color.TRANSPARENT;
-    viewer.scene.skyBox.show = false;
-    viewer.scene.skyAtmosphere.show = false;
-    viewer.scene.globe.baseColor = Cesium.Color.TRANSPARENT;
-    viewer.scene.globe.showGroundAtmosphere = false;
-    viewer.scene.globe.show = false;
-    viewer.cesiumWidget.creditContainer.style.display = "none";
-    viewer.scene.requestRenderMode = false;
-
-    viewer.camera.frustum.fov = Cesium.Math.toRadians(60);
-    viewer.camera.frustum.near = 0.1;
-    viewer.camera.frustum.far = 5000.0;
-
-    const ssc = viewer.scene.screenSpaceCameraController;
-    ssc.enableRotate = false;
-    ssc.enableTranslate = false;
-    ssc.enableZoom = false;
-    ssc.enableTilt = false;
-    ssc.enableLook = false;
-    ssc.enableInputs = false;
-
-    function normalizeDegrees(deg) {
-        let d = deg % 360;
-        if (d < 0) d += 360;
-        return d;
-    }
-
-    function clamp(v, min, max) {
-        return Math.max(min, Math.min(max, v));
-    }
-
-    function showToast(msg, ms = 2500) {
-        const el = document.getElementById("toast");
-        el.textContent = msg;
-        el.classList.add("show");
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => el.classList.remove("show"), ms);
-    }
-
-    function updateOffsetLabels() {
-        headingVal.textContent = headingOffsetEl.value;
-        pitchVal.textContent = pitchOffsetEl.value;
-        heightVal.textContent = heightOffsetEl.value;
-        tilesetHeightVal.textContent = tilesetHeightOffsetEl.value;
-        fovVal.textContent = fovRangeEl.value;
-    }
-
-    function updateGPSChip() {
-        latEl.textContent = currentLat == null ? "—" : currentLat.toFixed(6);
-        lonEl.textContent = currentLon == null ? "—" : currentLon.toFixed(6);
-
-        if (currentAccuracy == null) {
-            accEl.textContent = "—";
-            accEl.className = "";
-            return;
+            if (typeof window.orientation === "number") {
+                return window.orientation;
+            }
+            return 0;
         }
 
-        const acc = Math.round(currentAccuracy);
-        accEl.textContent = acc + "m";
-        accEl.className = acc < 6 ? "acc-good" : acc < 20 ? "acc-ok" : "acc-bad";
-    }
+        function multiplyMatrix3Array(a, b) {
+            return [
+                a[0]*b[0] + a[1]*b[3] + a[2]*b[6],
+                a[0]*b[1] + a[1]*b[4] + a[2]*b[7],
+                a[0]*b[2] + a[1]*b[5] + a[2]*b[8],
 
-    function updateCoordText() {
-        if (currentLon == null || currentLat == null) {
-            coordTextEl.textContent = "현재 좌표: 아직 없음";
-            return;
+                a[3]*b[0] + a[4]*b[3] + a[5]*b[6],
+                a[3]*b[1] + a[4]*b[4] + a[5]*b[7],
+                a[3]*b[2] + a[4]*b[5] + a[5]*b[8],
+
+                a[6]*b[0] + a[7]*b[3] + a[8]*b[6],
+                a[6]*b[1] + a[7]*b[4] + a[8]*b[7],
+                a[6]*b[2] + a[7]*b[5] + a[8]*b[8]
+            ];
         }
 
-        coordTextEl.textContent =
-            `현재 좌표: lon=${currentLon.toFixed(6)}, lat=${currentLat.toFixed(6)}, gpsH=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)}, ground=${groundHeight.toFixed(1)}, acc=${currentAccuracy == null ? "n/a" : Math.round(currentAccuracy) + "m"}`;
-    }
-
-    function updateSensorText() {
-        sensorTextEl.textContent =
-            `센서값: alpha=${lastAlpha.toFixed(1)}, beta=${lastBeta.toFixed(1)}, gamma=${lastGamma.toFixed(1)} / heading=${latestHeadingDeg.toFixed(1)}, pitch=${latestPitchDeg.toFixed(1)}, roll=${latestRollDeg.toFixed(1)}`;
-        headEl.textContent = `${Math.round(latestHeadingDeg)}°`;
-        compassNeedleEl.style.transform = `rotate(${-latestHeadingDeg}deg)`;
-    }
-
-    function updateTilesetText() {
-        if (!customTileset) {
-            tilesetTextEl.textContent = "타일셋: 아직 없음";
-            return;
+        function multiplyMatrixVector3(m, v) {
+            return new Cesium.Cartesian3(
+                m[0] * v.x + m[1] * v.y + m[2] * v.z,
+                m[3] * v.x + m[4] * v.y + m[5] * v.z,
+                m[6] * v.x + m[7] * v.y + m[8] * v.z
+            );
         }
 
-        const center = Cesium.Cartographic.fromCartesian(customTileset.boundingSphere.center);
-        tilesetTextEl.textContent =
-            `타일셋: centerLon=${Cesium.Math.toDegrees(center.longitude).toFixed(6)}, centerLat=${Cesium.Math.toDegrees(center.latitude).toFixed(6)}, centerH=${center.height.toFixed(1)}, offsetH=${Number(tilesetHeightOffsetEl.value).toFixed(1)}`;
-    }
-
-    function getScreenOrientationAngleDeg() {
-        if (screen.orientation && typeof screen.orientation.angle === "number") {
-            return screen.orientation.angle;
+        function rotationZ(rad) {
+            const c = Math.cos(rad);
+            const s = Math.sin(rad);
+            return [
+                c, -s, 0,
+                s,  c, 0,
+                0,  0, 1
+            ];
         }
-        if (typeof window.orientation === "number") {
-            return window.orientation;
+
+        function rotationX(rad) {
+            const c = Math.cos(rad);
+            const s = Math.sin(rad);
+            return [
+                1, 0,  0,
+                0, c, -s,
+                0, s,  c
+            ];
         }
-        return 0;
-    }
 
-    function multiplyMatrix3Array(a, b) {
-        return [
-            a[0]*b[0] + a[1]*b[3] + a[2]*b[6],
-            a[0]*b[1] + a[1]*b[4] + a[2]*b[7],
-            a[0]*b[2] + a[1]*b[5] + a[2]*b[8],
-
-            a[3]*b[0] + a[4]*b[3] + a[5]*b[6],
-            a[3]*b[1] + a[4]*b[4] + a[5]*b[7],
-            a[3]*b[2] + a[4]*b[5] + a[5]*b[8],
-
-            a[6]*b[0] + a[7]*b[3] + a[8]*b[6],
-            a[6]*b[1] + a[7]*b[4] + a[8]*b[7],
-            a[6]*b[2] + a[7]*b[5] + a[8]*b[8]
-        ];
-    }
-
-    function multiplyMatrixVector3(m, v) {
-        return new Cesium.Cartesian3(
-            m[0] * v.x + m[1] * v.y + m[2] * v.z,
-            m[3] * v.x + m[4] * v.y + m[5] * v.z,
-            m[6] * v.x + m[7] * v.y + m[8] * v.z
-        );
-    }
-
-    function rotationZ(rad) {
-        const c = Math.cos(rad);
-        const s = Math.sin(rad);
-        return [
-            c, -s, 0,
-            s,  c, 0,
-            0,  0, 1
-        ];
-    }
-
-    function rotationX(rad) {
-        const c = Math.cos(rad);
-        const s = Math.sin(rad);
-        return [
-            1, 0,  0,
-            0, c, -s,
-            0, s,  c
-        ];
-    }
-
-    function rotationY(rad) {
-        const c = Math.cos(rad);
-        const s = Math.sin(rad);
-        return [
-            c, 0, s,
-            0, 1, 0,
-            -s, 0, c
-        ];
-    }
-
-    function normalizeVec(v) {
-        const out = Cesium.Cartesian3.clone(v);
-        return Cesium.Cartesian3.normalize(out, out);
-    }
-
-    function projectToPlane(v, normal) {
-        const dot = Cesium.Cartesian3.dot(v, normal);
-        const scaledNormal = Cesium.Cartesian3.multiplyByScalar(normal, dot, new Cesium.Cartesian3());
-        return Cesium.Cartesian3.subtract(v, scaledNormal, new Cesium.Cartesian3());
-    }
-
-    function rotateAroundAxis(vec, axis, angleRad) {
-        const k = normalizeVec(axis);
-        const cosA = Math.cos(angleRad);
-        const sinA = Math.sin(angleRad);
-
-        const term1 = Cesium.Cartesian3.multiplyByScalar(vec, cosA, new Cesium.Cartesian3());
-        const kCrossV = Cesium.Cartesian3.cross(k, vec, new Cesium.Cartesian3());
-        const term2 = Cesium.Cartesian3.multiplyByScalar(kCrossV, sinA, new Cesium.Cartesian3());
-        const kDotV = Cesium.Cartesian3.dot(k, vec);
-        const term3 = Cesium.Cartesian3.multiplyByScalar(k, kDotV * (1 - cosA), new Cesium.Cartesian3());
-
-        const temp = Cesium.Cartesian3.add(term1, term2, new Cesium.Cartesian3());
-        return Cesium.Cartesian3.add(temp, term3, temp);
-    }
-
-    function buildDirectionUpFromHeadingPitchRoll(headingDeg, pitchDeg, rollDeg) {
-        const headingRad = Cesium.Math.toRadians(headingDeg);
-        const pitchRad = Cesium.Math.toRadians(pitchDeg);
-        const rollRad = Cesium.Math.toRadians(rollDeg);
-
-        const dir = new Cesium.Cartesian3(
-            Math.cos(pitchRad) * Math.sin(headingRad),
-            Math.cos(pitchRad) * Math.cos(headingRad),
-            Math.sin(pitchRad)
-        );
-        Cesium.Cartesian3.normalize(dir, dir);
-
-        const worldUp = new Cesium.Cartesian3(0, 0, 1);
-
-        let right = Cesium.Cartesian3.cross(dir, worldUp, new Cesium.Cartesian3());
-        if (Cesium.Cartesian3.magnitudeSquared(right) < 1e-8) {
-            right = Cesium.Cartesian3.cross(dir, new Cesium.Cartesian3(0, 1, 0), right);
+        function rotationY(rad) {
+            const c = Math.cos(rad);
+            const s = Math.sin(rad);
+            return [
+                c, 0, s,
+                0, 1, 0,
+                -s, 0, c
+            ];
         }
-        Cesium.Cartesian3.normalize(right, right);
 
-        let up = Cesium.Cartesian3.cross(right, dir, new Cesium.Cartesian3());
-        Cesium.Cartesian3.normalize(up, up);
+        function normalizeVec(v) {
+            const out = Cesium.Cartesian3.clone(v);
+            return Cesium.Cartesian3.normalize(out, out);
+        }
 
-        if (Math.abs(rollDeg) > 0.0001) {
-            up = rotateAroundAxis(up, dir, rollRad);
+        function projectToPlane(v, normal) {
+            const dot = Cesium.Cartesian3.dot(v, normal);
+            const scaledNormal = Cesium.Cartesian3.multiplyByScalar(normal, dot, new Cesium.Cartesian3());
+            return Cesium.Cartesian3.subtract(v, scaledNormal, new Cesium.Cartesian3());
+        }
+
+        function rotateAroundAxis(vec, axis, angleRad) {
+            const k = normalizeVec(axis);
+            const cosA = Math.cos(angleRad);
+            const sinA = Math.sin(angleRad);
+
+            const term1 = Cesium.Cartesian3.multiplyByScalar(vec, cosA, new Cesium.Cartesian3());
+            const kCrossV = Cesium.Cartesian3.cross(k, vec, new Cesium.Cartesian3());
+            const term2 = Cesium.Cartesian3.multiplyByScalar(kCrossV, sinA, new Cesium.Cartesian3());
+            const kDotV = Cesium.Cartesian3.dot(k, vec);
+            const term3 = Cesium.Cartesian3.multiplyByScalar(k, kDotV * (1 - cosA), new Cesium.Cartesian3());
+
+            const temp = Cesium.Cartesian3.add(term1, term2, new Cesium.Cartesian3());
+            return Cesium.Cartesian3.add(temp, term3, temp);
+        }
+
+        function buildDirectionUpFromHeadingPitchRoll(headingDeg, pitchDeg, rollDeg) {
+            const headingRad = Cesium.Math.toRadians(headingDeg);
+            const pitchRad = Cesium.Math.toRadians(pitchDeg);
+            const rollRad = Cesium.Math.toRadians(rollDeg);
+
+            const dir = new Cesium.Cartesian3(
+                Math.cos(pitchRad) * Math.sin(headingRad),
+                Math.cos(pitchRad) * Math.cos(headingRad),
+                Math.sin(pitchRad)
+            );
+            Cesium.Cartesian3.normalize(dir, dir);
+
+            const worldUp = new Cesium.Cartesian3(0, 0, 1);
+
+            let right = Cesium.Cartesian3.cross(dir, worldUp, new Cesium.Cartesian3());
+            if (Cesium.Cartesian3.magnitudeSquared(right) < 1e-8) {
+                right = Cesium.Cartesian3.cross(dir, new Cesium.Cartesian3(0, 1, 0), right);
+            }
+            Cesium.Cartesian3.normalize(right, right);
+
+            let up = Cesium.Cartesian3.cross(right, dir, new Cesium.Cartesian3());
             Cesium.Cartesian3.normalize(up, up);
-        }
 
-        return { direction: dir, up };
-    }
-
-    function computePoseFromDeviceOrientation(event) {
-        const alpha = Cesium.Math.toRadians(event.alpha ?? 0);
-        const beta = Cesium.Math.toRadians(event.beta ?? 0);
-        const gamma = Cesium.Math.toRadians(event.gamma ?? 0);
-        const orient = Cesium.Math.toRadians(getScreenOrientationAngleDeg());
-
-        const rz = rotationZ(alpha);
-        const rx = rotationX(beta);
-        const ry = rotationY(gamma);
-        const rs = rotationZ(-orient);
-
-        let m = multiplyMatrix3Array(rz, rx);
-        m = multiplyMatrix3Array(m, ry);
-        m = multiplyMatrix3Array(m, rs);
-
-        const deviceForward = new Cesium.Cartesian3(0, 0, -1);
-        const deviceUp = new Cesium.Cartesian3(0, 1, 0);
-
-        let forward = multiplyMatrixVector3(m, deviceForward);
-        let up = multiplyMatrixVector3(m, deviceUp);
-
-        forward = normalizeVec(forward);
-        up = normalizeVec(up);
-
-        let headingDeg;
-        if (typeof event.webkitCompassHeading === "number" && Number.isFinite(event.webkitCompassHeading)) {
-            headingDeg = normalizeDegrees(event.webkitCompassHeading);
-        } else {
-            headingDeg = normalizeDegrees(Cesium.Math.toDegrees(Math.atan2(forward.x, forward.y)));
-        }
-
-        const pitchDeg = Cesium.Math.toDegrees(Math.asin(clamp(forward.z, -1, 1)));
-
-        const worldUp = new Cesium.Cartesian3(0, 0, 1);
-
-        let baseRight = Cesium.Cartesian3.cross(forward, worldUp, new Cesium.Cartesian3());
-        if (Cesium.Cartesian3.magnitudeSquared(baseRight) < 1e-8) {
-            baseRight = Cesium.Cartesian3.cross(forward, new Cesium.Cartesian3(0, 1, 0), baseRight);
-        }
-        Cesium.Cartesian3.normalize(baseRight, baseRight);
-
-        let baseUp = Cesium.Cartesian3.cross(baseRight, forward, new Cesium.Cartesian3());
-        Cesium.Cartesian3.normalize(baseUp, baseUp);
-
-        let upProjected = projectToPlane(up, forward);
-        if (Cesium.Cartesian3.magnitudeSquared(upProjected) < 1e-8) {
-            upProjected = Cesium.Cartesian3.clone(baseUp);
-        }
-        Cesium.Cartesian3.normalize(upProjected, upProjected);
-
-        const crossUp = Cesium.Cartesian3.cross(baseUp, upProjected, new Cesium.Cartesian3());
-        const sinRoll = Cesium.Cartesian3.dot(crossUp, forward);
-        const cosRoll = Cesium.Cartesian3.dot(baseUp, upProjected);
-
-        const rollDeg = Cesium.Math.toDegrees(Math.atan2(sinRoll, cosRoll));
-
-        return { headingDeg, pitchDeg, rollDeg };
-    }
-
-    function getCameraAltitude() {
-        const manualOffset = Number(heightOffsetEl.value) || 0;
-        const gpsAltitudeValid = Number.isFinite(currentHeight) && currentHeight > -100 && currentHeight < 10000;
-        const terrainValid = Number.isFinite(groundHeight);
-
-        if (gpsAltitudeValid) {
-            return currentHeight + eyeHeightMeters + manualOffset;
-        }
-        if (terrainValid) {
-            return groundHeight + eyeHeightMeters + manualOffset;
-        }
-        return eyeHeightMeters + manualOffset;
-    }
-
-    function applyCameraPose() {
-        if (currentLon == null || currentLat == null) return;
-
-        const headingOffset = Number(headingOffsetEl.value) || 0;
-        const pitchOffset = Number(pitchOffsetEl.value) || 0;
-
-        latestHeadingDeg = normalizeDegrees(rawHeadingDeg - calibratedHeading + headingOffset);
-        latestPitchDeg = clamp(rawPitchDeg - calibratedPitch + pitchOffset, -89, 89);
-        latestRollDeg = clamp((rawRollDeg - calibratedRoll) * 0.35, -30, 30);
-
-        const position = Cesium.Cartesian3.fromDegrees(
-            currentLon,
-            currentLat,
-            getCameraAltitude()
-        );
-
-        const localPose = buildDirectionUpFromHeadingPitchRoll(
-            latestHeadingDeg,
-            latestPitchDeg,
-            latestRollDeg
-        );
-
-        const enuFrame = Cesium.Transforms.eastNorthUpToFixedFrame(position);
-
-        const worldDirection = Cesium.Matrix4.multiplyByPointAsVector(
-            enuFrame,
-            localPose.direction,
-            new Cesium.Cartesian3()
-        );
-        Cesium.Cartesian3.normalize(worldDirection, worldDirection);
-
-        const worldUp = Cesium.Matrix4.multiplyByPointAsVector(
-            enuFrame,
-            localPose.up,
-            new Cesium.Cartesian3()
-        );
-        Cesium.Cartesian3.normalize(worldUp, worldUp);
-
-        viewer.camera.setView({
-            destination: position,
-            orientation: {
-                direction: worldDirection,
-                up: worldUp
+            if (Math.abs(rollDeg) > 0.0001) {
+                up = rotateAroundAxis(up, dir, rollRad);
+                Cesium.Cartesian3.normalize(up, up);
             }
-        });
 
-        updateSensorText();
-    }
-
-    function moveCameraToCurrentPositionOnly() {
-        if (currentLon == null || currentLat == null) return;
-
-        const destination = Cesium.Cartesian3.fromDegrees(
-            currentLon,
-            currentLat,
-            getCameraAltitude()
-        );
-
-        viewer.camera.setView({
-            destination,
-            orientation: {
-                heading: 0,
-                pitch: 0,
-                roll: 0
-            }
-        });
-    }
-
-    function distanceMeters(lon1, lat1, lon2, lat2) {
-        const c1 = Cesium.Cartographic.fromDegrees(lon1, lat1);
-        const c2 = Cesium.Cartographic.fromDegrees(lon2, lat2);
-        const g = new Cesium.EllipsoidGeodesic(c1, c2);
-        return g.surfaceDistance;
-    }
-
-    async function updateGroundHeight(force = false) {
-        if (currentLon == null || currentLat == null) return;
-
-        const now = Date.now();
-        if (!force && lastTerrainSampleLon != null && lastTerrainSampleLat != null) {
-            const moved = distanceMeters(lastTerrainSampleLon, lastTerrainSampleLat, currentLon, currentLat);
-            const elapsed = now - lastTerrainSampleTime;
-            if (moved < 5 && elapsed < 3000) return;
+            return { direction: dir, up };
         }
 
-        try {
-            const cartographic = Cesium.Cartographic.fromDegrees(currentLon, currentLat);
-            const updated = await Cesium.sampleTerrainMostDetailed(
-                viewer.terrainProvider,
-                [cartographic]
+        function computePoseFromDeviceOrientation(event) {
+            const alpha = Cesium.Math.toRadians(event.alpha ?? 0);
+            const beta = Cesium.Math.toRadians(event.beta ?? 0);
+            const gamma = Cesium.Math.toRadians(event.gamma ?? 0);
+            const orient = Cesium.Math.toRadians(getScreenOrientationAngleDeg());
+
+            const rz = rotationZ(alpha);
+            const rx = rotationX(beta);
+            const ry = rotationY(gamma);
+            const rs = rotationZ(-orient);
+
+            let m = multiplyMatrix3Array(rz, rx);
+            m = multiplyMatrix3Array(m, ry);
+            m = multiplyMatrix3Array(m, rs);
+
+            const deviceForward = new Cesium.Cartesian3(0, 0, -1);
+            const deviceUp = new Cesium.Cartesian3(0, 1, 0);
+
+            let forward = multiplyMatrixVector3(m, deviceForward);
+            let up = multiplyMatrixVector3(m, deviceUp);
+
+            forward = normalizeVec(forward);
+            up = normalizeVec(up);
+
+            let headingDeg;
+            if (typeof event.webkitCompassHeading === "number" && Number.isFinite(event.webkitCompassHeading)) {
+                headingDeg = normalizeDegrees(event.webkitCompassHeading);
+            } else {
+                headingDeg = normalizeDegrees(Cesium.Math.toDegrees(Math.atan2(forward.x, forward.y)));
+            }
+
+            const pitchDeg = Cesium.Math.toDegrees(Math.asin(clamp(forward.z, -1, 1)));
+
+            const worldUp = new Cesium.Cartesian3(0, 0, 1);
+
+            let baseRight = Cesium.Cartesian3.cross(forward, worldUp, new Cesium.Cartesian3());
+            if (Cesium.Cartesian3.magnitudeSquared(baseRight) < 1e-8) {
+                baseRight = Cesium.Cartesian3.cross(forward, new Cesium.Cartesian3(0, 1, 0), baseRight);
+            }
+            Cesium.Cartesian3.normalize(baseRight, baseRight);
+
+            let baseUp = Cesium.Cartesian3.cross(baseRight, forward, new Cesium.Cartesian3());
+            Cesium.Cartesian3.normalize(baseUp, baseUp);
+
+            let upProjected = projectToPlane(up, forward);
+            if (Cesium.Cartesian3.magnitudeSquared(upProjected) < 1e-8) {
+                upProjected = Cesium.Cartesian3.clone(baseUp);
+            }
+            Cesium.Cartesian3.normalize(upProjected, upProjected);
+
+            const crossUp = Cesium.Cartesian3.cross(baseUp, upProjected, new Cesium.Cartesian3());
+            const sinRoll = Cesium.Cartesian3.dot(crossUp, forward);
+            const cosRoll = Cesium.Cartesian3.dot(baseUp, upProjected);
+
+            const rollDeg = Cesium.Math.toDegrees(Math.atan2(sinRoll, cosRoll));
+
+            return { headingDeg, pitchDeg, rollDeg };
+        }
+
+        function getCameraAltitude() {
+            const manualOffset = Number(heightOffsetEl.value) || 0;
+            const gpsAltitudeValid = Number.isFinite(currentHeight) && currentHeight > -100 && currentHeight < 10000;
+            const terrainValid = Number.isFinite(groundHeight);
+
+            if (gpsAltitudeValid) {
+                return currentHeight + eyeHeightMeters + manualOffset;
+            }
+            if (terrainValid) {
+                return groundHeight + eyeHeightMeters + manualOffset;
+            }
+            return eyeHeightMeters + manualOffset;
+        }
+
+        function applyCameraPose() {
+            if (currentLon == null || currentLat == null) return;
+
+            const headingOffset = Number(headingOffsetEl.value) || 0;
+            const pitchOffset = Number(pitchOffsetEl.value) || 0;
+
+            latestHeadingDeg = normalizeDegrees(rawHeadingDeg - calibratedHeading + headingOffset);
+            latestPitchDeg = clamp(rawPitchDeg - calibratedPitch + pitchOffset, -89, 89);
+            latestRollDeg = clamp((rawRollDeg - calibratedRoll) * 0.35, -30, 30);
+
+            const position = Cesium.Cartesian3.fromDegrees(
+                currentLon,
+                currentLat,
+                getCameraAltitude()
             );
 
-            if (updated && updated.length > 0 && Number.isFinite(updated[0].height)) {
-                groundHeight = updated[0].height;
-                lastTerrainSampleLon = currentLon;
-                lastTerrainSampleLat = currentLat;
-                lastTerrainSampleTime = now;
-            }
-        } catch (e) {
-            console.warn("지면 높이 조회 실패:", e);
-        }
-    }
+            const localPose = buildDirectionUpFromHeadingPitchRoll(
+                latestHeadingDeg,
+                latestPitchDeg,
+                latestRollDeg
+            );
 
-    async function loadCustomTileset() {
-        try {
-            if (customTileset) return;
+            const enuFrame = Cesium.Transforms.eastNorthUpToFixedFrame(position);
 
-            statusEl.textContent = "타일셋 로드중...";
-            customTileset = await Cesium.Cesium3DTileset.fromUrl(
-                TILESET_URL,
-                {
-                    maximumScreenSpaceError: 24,
-                    skipLevelOfDetail: true,
-                    preferLeaves: true,
-                    dynamicScreenSpaceError: true,
-                    preloadWhenHidden: false,
-                    cullWithChildrenBounds: true
+            const worldDirection = Cesium.Matrix4.multiplyByPointAsVector(
+                enuFrame,
+                localPose.direction,
+                new Cesium.Cartesian3()
+            );
+            Cesium.Cartesian3.normalize(worldDirection, worldDirection);
+
+            const worldUp = Cesium.Matrix4.multiplyByPointAsVector(
+                enuFrame,
+                localPose.up,
+                new Cesium.Cartesian3()
+            );
+            Cesium.Cartesian3.normalize(worldUp, worldUp);
+
+            viewer.camera.setView({
+                destination: position,
+                orientation: {
+                    direction: worldDirection,
+                    up: worldUp
                 }
+            });
+
+            updateSensorText();
+        }
+
+        function moveCameraToCurrentPositionOnly() {
+            if (currentLon == null || currentLat == null) return;
+
+            const destination = Cesium.Cartesian3.fromDegrees(
+                currentLon,
+                currentLat,
+                getCameraAltitude()
             );
 
-            viewer.scene.primitives.add(customTileset);
-            applyTilesetHeightOffset();
+            viewer.camera.setView({
+                destination,
+                orientation: {
+                    heading: 0,
+                    pitch: 0,
+                    roll: 0
+                }
+            });
+        }
+
+        function distanceMeters(lon1, lat1, lon2, lat2) {
+            const c1 = Cesium.Cartographic.fromDegrees(lon1, lat1);
+            const c2 = Cesium.Cartographic.fromDegrees(lon2, lat2);
+            const g = new Cesium.EllipsoidGeodesic(c1, c2);
+            return g.surfaceDistance;
+        }
+
+        async function updateGroundHeight(force = false) {
+            if (currentLon == null || currentLat == null) return;
+
+            const now = Date.now();
+            if (!force && lastTerrainSampleLon != null && lastTerrainSampleLat != null) {
+                const moved = distanceMeters(lastTerrainSampleLon, lastTerrainSampleLat, currentLon, currentLat);
+                const elapsed = now - lastTerrainSampleTime;
+                if (moved < 5 && elapsed < 3000) return;
+            }
+
+            try {
+                const cartographic = Cesium.Cartographic.fromDegrees(currentLon, currentLat);
+                const updated = await Cesium.sampleTerrainMostDetailed(
+                    viewer.terrainProvider,
+                    [cartographic]
+                );
+
+                if (updated && updated.length > 0 && Number.isFinite(updated[0].height)) {
+                    groundHeight = updated[0].height;
+                    lastTerrainSampleLon = currentLon;
+                    lastTerrainSampleLat = currentLat;
+                    lastTerrainSampleTime = now;
+                }
+            } catch (e) {
+                console.warn("지면 높이 조회 실패:", e);
+            }
+        }
+
+        async function loadCustomTileset() {
+            try {
+                if (customTileset) return;
+
+                statusEl.textContent = "타일셋 로드중...";
+                customTileset = await Cesium.Cesium3DTileset.fromUrl(
+                    TILESET_URL,
+                    {
+                        maximumScreenSpaceError: 24,
+                        skipLevelOfDetail: true,
+                        preferLeaves: true,
+                        dynamicScreenSpaceError: true,
+                        preloadWhenHidden: false,
+                        cullWithChildrenBounds: true
+                    }
+                );
+
+                viewer.scene.primitives.add(customTileset);
+                applyTilesetHeightOffset();
+                updateTilesetText();
+                statusEl.textContent = "타일셋 로드 완료";
+            } catch (e) {
+                console.error(e);
+                statusEl.textContent = `타일셋 로드 실패: ${e.message}`;
+            }
+        }
+
+        function applyTilesetHeightOffset() {
+            if (!customTileset || !customTileset.boundingSphere) return;
+
+            const cartographic = Cesium.Cartographic.fromCartesian(customTileset.boundingSphere.center);
+            const surface = Cesium.Cartesian3.fromRadians(
+                cartographic.longitude,
+                cartographic.latitude,
+                cartographic.height
+            );
+            const offset = Cesium.Cartesian3.fromRadians(
+                cartographic.longitude,
+                cartographic.latitude,
+                cartographic.height + Number(tilesetHeightOffsetEl.value || 0)
+            );
+
+            const translation = Cesium.Cartesian3.subtract(offset, surface, new Cesium.Cartesian3());
+            customTileset.modelMatrix = Cesium.Matrix4.fromTranslation(translation);
             updateTilesetText();
-            statusEl.textContent = "타일셋 로드 완료";
-        } catch (e) {
-            console.error(e);
-            statusEl.textContent = `타일셋 로드 실패: ${e.message}`;
         }
-    }
 
-    function applyTilesetHeightOffset() {
-        if (!customTileset || !customTileset.boundingSphere) return;
+        async function startCamera() {
+            if (cameraStarted) return;
 
-        const cartographic = Cesium.Cartographic.fromCartesian(customTileset.boundingSphere.center);
-        const surface = Cesium.Cartesian3.fromRadians(
-            cartographic.longitude,
-            cartographic.latitude,
-            cartographic.height
-        );
-        const offset = Cesium.Cartesian3.fromRadians(
-            cartographic.longitude,
-            cartographic.latitude,
-            cartographic.height + Number(tilesetHeightOffsetEl.value || 0)
-        );
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: "environment" },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: false
+            });
 
-        const translation = Cesium.Cartesian3.subtract(offset, surface, new Cesium.Cartesian3());
-        customTileset.modelMatrix = Cesium.Matrix4.fromTranslation(translation);
-        updateTilesetText();
-    }
-
-    async function startCamera() {
-        if (cameraStarted) return;
-
-        cameraStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: { ideal: "environment" },
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: false
-        });
-
-        videoEl.srcObject = cameraStream;
-        await videoEl.play();
-        videoEl.style.display = "block";
-        cameraStarted = true;
-    }
-
-    function stopCamera() {
-        if (cameraStream) {
-            cameraStream.getTracks().forEach(t => t.stop());
-            cameraStream = null;
+            videoEl.srcObject = cameraStream;
+            await videoEl.play();
+            videoEl.style.display = "block";
+            cameraStarted = true;
         }
-        videoEl.srcObject = null;
-        videoEl.style.display = "none";
-        cameraStarted = false;
-    }
 
-    function waitForFirstGpsFix(timeoutMs = 15000) {
-        return new Promise((resolve, reject) => {
-            const startTime = Date.now();
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(t => t.stop());
+                cameraStream = null;
+            }
+            videoEl.srcObject = null;
+            videoEl.style.display = "none";
+            cameraStarted = false;
+        }
 
-            const timer = setInterval(() => {
-                if (hasFirstGpsFix && currentLon != null && currentLat != null) {
-                    clearInterval(timer);
-                    resolve();
-                    return;
+        function waitForFirstGpsFix(timeoutMs = 15000) {
+            return new Promise((resolve, reject) => {
+                const startTime = Date.now();
+
+                const timer = setInterval(() => {
+                    if (hasFirstGpsFix && currentLon != null && currentLat != null) {
+                        clearInterval(timer);
+                        resolve();
+                        return;
+                    }
+
+                    if (Date.now() - startTime > timeoutMs) {
+                        clearInterval(timer);
+                        reject(new Error("현재 위치를 가져오지 못했습니다. 실외에서 위치 권한을 확인해보세요."));
+                    }
+                }, 300);
+            });
+        }
+
+        function startGeolocation() {
+            if (gpsStarted) return;
+            if (!navigator.geolocation) {
+                throw new Error("이 브라우저는 geolocation을 지원하지 않습니다.");
+            }
+
+            watchId = navigator.geolocation.watchPosition(
+                async (pos) => {
+                    currentLon = pos.coords.longitude;
+                    currentLat = pos.coords.latitude;
+                    currentHeight = Number.isFinite(pos.coords.altitude) ? pos.coords.altitude : null;
+                    currentAccuracy = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null;
+                    hasFirstGpsFix = true;
+
+                    await updateGroundHeight(false);
+                    updateCoordText();
+                    updateGPSChip();
+
+                    if (!orientationStarted) {
+                        moveCameraToCurrentPositionOnly();
+                    } else if (arMode) {
+                        applyCameraPose();
+                    }
+
+                    statusEl.textContent =
+                        `GPS 수신중: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}, h=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)}`;
+
+                },
+                (err) => {
+                    console.error(err);
+                    statusEl.textContent = `GPS 실패: ${err.message}`;
+                    showToast("GPS 오류: " + err.message);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 1000,
+                    timeout: 10000
                 }
+            );
 
-                if (Date.now() - startTime > timeoutMs) {
-                    clearInterval(timer);
-                    reject(new Error("현재 위치를 가져오지 못했습니다. 실외에서 위치 권한을 확인해보세요."));
-                }
-            }, 300);
-        });
-    }
-
-    function startGeolocation() {
-        if (gpsStarted) return;
-        if (!navigator.geolocation) {
-            throw new Error("이 브라우저는 geolocation을 지원하지 않습니다.");
+            gpsStarted = true;
         }
 
-        watchId = navigator.geolocation.watchPosition(
-            async (pos) => {
-                currentLon = pos.coords.longitude;
-                currentLat = pos.coords.latitude;
-                currentHeight = Number.isFinite(pos.coords.altitude) ? pos.coords.altitude : null;
-                currentAccuracy = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null;
-                hasFirstGpsFix = true;
+        function stopGeolocation() {
+            if (watchId != null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            gpsStarted = false;
+        }
 
-                await updateGroundHeight(false);
+        function handleDeviceOrientation(event) {
+            lastAlpha = event.alpha ?? 0;
+            lastBeta = event.beta ?? 0;
+            lastGamma = event.gamma ?? 0;
+
+            const pose = computePoseFromDeviceOrientation(event);
+            rawHeadingDeg = pose.headingDeg;
+            rawPitchDeg = pose.pitchDeg;
+            rawRollDeg = pose.rollDeg;
+
+            if (currentLon == null || currentLat == null) {
+                latestHeadingDeg = rawHeadingDeg;
+                latestPitchDeg = rawPitchDeg;
+                latestRollDeg = rawRollDeg;
+                updateSensorText();
+                return;
+            }
+
+            if (arMode) {
+                applyCameraPose();
+            } else {
+                latestHeadingDeg = rawHeadingDeg;
+                latestPitchDeg = rawPitchDeg;
+                latestRollDeg = rawRollDeg;
+                updateSensorText();
+            }
+        }
+
+        async function requestiOSMotionPermissionIfNeeded() {
+            if (
+                typeof DeviceOrientationEvent !== "undefined" &&
+                typeof DeviceOrientationEvent.requestPermission === "function"
+            ) {
+                const result = await DeviceOrientationEvent.requestPermission();
+                if (result !== "granted") {
+                    throw new Error("iOS 센서 권한이 거부되었습니다.");
+                }
+            }
+        }
+
+        function startOrientationTracking() {
+            if (orientationStarted) return;
+            window.addEventListener("deviceorientation", handleDeviceOrientation, true);
+            orientationStarted = true;
+        }
+
+        function stopOrientationTracking() {
+            if (!orientationStarted) return;
+            window.removeEventListener("deviceorientation", handleDeviceOrientation, true);
+            orientationStarted = false;
+        }
+
+        async function startAR() {
+            try {
+                statusEl.textContent = "권한 요청중...";
+
+                await startCamera();
+                await requestiOSMotionPermissionIfNeeded();
+                startOrientationTracking();
+
+                statusEl.textContent = "현재 위치 가져오는 중...";
+                startGeolocation();
+                await waitForFirstGpsFix();
+
+                await updateGroundHeight(true);
+                await loadCustomTileset();
+
                 updateCoordText();
                 updateGPSChip();
+                applyCameraPose();
 
-                if (!orientationStarted) {
-                    moveCameraToCurrentPositionOnly();
-                } else if (arMode) {
-                    applyCameraPose();
-                }
+                arMode = true;
+                arToggleBtn.className = "ar-toggle on";
+                arToggleBtn.textContent = "AR 종료";
+                liveBadgeEl.classList.add("show");
 
-                statusEl.textContent =
-                    `GPS 수신중: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}, h=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)}`;
-
-            },
-            (err) => {
-                console.error(err);
-                statusEl.textContent = `GPS 실패: ${err.message}`;
-                showToast("GPS 오류: " + err.message);
-            },
-            {
-                enableHighAccuracy: true,
-                maximumAge: 1000,
-                timeout: 10000
-            }
-        );
-
-        gpsStarted = true;
-    }
-
-    function stopGeolocation() {
-        if (watchId != null) {
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
-        }
-        gpsStarted = false;
-    }
-
-    function handleDeviceOrientation(event) {
-        lastAlpha = event.alpha ?? 0;
-        lastBeta = event.beta ?? 0;
-        lastGamma = event.gamma ?? 0;
-
-        const pose = computePoseFromDeviceOrientation(event);
-        rawHeadingDeg = pose.headingDeg;
-        rawPitchDeg = pose.pitchDeg;
-        rawRollDeg = pose.rollDeg;
-
-        if (currentLon == null || currentLat == null) {
-            latestHeadingDeg = rawHeadingDeg;
-            latestPitchDeg = rawPitchDeg;
-            latestRollDeg = rawRollDeg;
-            updateSensorText();
-            return;
-        }
-
-        if (arMode) {
-            applyCameraPose();
-        } else {
-            latestHeadingDeg = rawHeadingDeg;
-            latestPitchDeg = rawPitchDeg;
-            latestRollDeg = rawRollDeg;
-            updateSensorText();
-        }
-    }
-
-    async function requestiOSMotionPermissionIfNeeded() {
-        if (
-            typeof DeviceOrientationEvent !== "undefined" &&
-            typeof DeviceOrientationEvent.requestPermission === "function"
-        ) {
-            const result = await DeviceOrientationEvent.requestPermission();
-            if (result !== "granted") {
-                throw new Error("iOS 센서 권한이 거부되었습니다.");
+                statusEl.textContent = "AR 시작됨";
+                showToast("AR 모드 활성화");
+            } catch (e) {
+                console.error(e);
+                statusEl.textContent = `초기화 실패: ${e.message}`;
+                showToast("초기화 실패: " + e.message, 3200);
             }
         }
-    }
 
-    function startOrientationTracking() {
-        if (orientationStarted) return;
-        window.addEventListener("deviceorientation", handleDeviceOrientation, true);
-        orientationStarted = true;
-    }
+        function stopAR() {
+            arMode = false;
+            stopOrientationTracking();
+            stopCamera();
 
-    function stopOrientationTracking() {
-        if (!orientationStarted) return;
-        window.removeEventListener("deviceorientation", handleDeviceOrientation, true);
-        orientationStarted = false;
-    }
+            arToggleBtn.className = "ar-toggle off";
+            arToggleBtn.textContent = "AR 시작";
+            liveBadgeEl.classList.remove("show");
 
-    async function startAR() {
-        try {
-            statusEl.textContent = "권한 요청중...";
+            if (currentLon != null && currentLat != null) {
+                moveCameraToCurrentPositionOnly();
+            }
 
-            await startCamera();
-            await requestiOSMotionPermissionIfNeeded();
-            startOrientationTracking();
-
-            statusEl.textContent = "현재 위치 가져오는 중...";
-            startGeolocation();
-            await waitForFirstGpsFix();
-
-            await updateGroundHeight(true);
-            await loadCustomTileset();
-
-            updateCoordText();
-            updateGPSChip();
-            applyCameraPose();
-
-            arMode = true;
-            arToggleBtn.className = "ar-toggle on";
-            arToggleBtn.textContent = "AR 종료";
-            liveBadgeEl.classList.add("show");
-
-            statusEl.textContent = "AR 시작됨";
-            showToast("AR 모드 활성화");
-        } catch (e) {
-            console.error(e);
-            statusEl.textContent = `초기화 실패: ${e.message}`;
-            showToast("초기화 실패: " + e.message, 3200);
-        }
-    }
-
-    function stopAR() {
-        arMode = false;
-        stopOrientationTracking();
-        stopCamera();
-
-        arToggleBtn.className = "ar-toggle off";
-        arToggleBtn.textContent = "AR 시작";
-        liveBadgeEl.classList.remove("show");
-
-        if (currentLon != null && currentLat != null) {
-            moveCameraToCurrentPositionOnly();
+            statusEl.textContent = "AR 종료됨";
+            showToast("AR 모드 종료");
         }
 
-        statusEl.textContent = "AR 종료됨";
-        showToast("AR 모드 종료");
-    }
+        function captureCalibrationPose() {
+            calibratedHeading = rawHeadingDeg;
+            calibratedPitch = rawPitchDeg;
+            calibratedRoll = rawRollDeg;
+            if (arMode) applyCameraPose();
+            statusEl.textContent = "현재 자세를 기준으로 보정했습니다.";
+            showToast("현재 자세 기준 보정 완료");
+        }
 
-    function captureCalibrationPose() {
-        calibratedHeading = rawHeadingDeg;
-        calibratedPitch = rawPitchDeg;
-        calibratedRoll = rawRollDeg;
-        if (arMode) applyCameraPose();
-        statusEl.textContent = "현재 자세를 기준으로 보정했습니다.";
-        showToast("현재 자세 기준 보정 완료");
-    }
+        function resetCalibration() {
+            calibratedHeading = 0;
+            calibratedPitch = 0;
+            calibratedRoll = 0;
+            if (arMode) applyCameraPose();
+            statusEl.textContent = "자세 보정을 초기화했습니다.";
+            showToast("보정 초기화");
+        }
 
-    function resetCalibration() {
-        calibratedHeading = 0;
-        calibratedPitch = 0;
-        calibratedRoll = 0;
-        if (arMode) applyCameraPose();
-        statusEl.textContent = "자세 보정을 초기화했습니다.";
-        showToast("보정 초기화");
-    }
+        function saveNotesToStorage() {
+            const pureNotes = notes.map(n => ({
+                id: n.id,
+                text: n.text,
+                lon: n.lon,
+                lat: n.lat,
+                height: n.height
+            }));
+            localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(pureNotes));
+        }
 
-    function saveNotesToStorage() {
-        const pureNotes = notes.map(n => ({
-            id: n.id,
-            text: n.text,
-            lon: n.lon,
-            lat: n.lat,
-            height: n.height
-        }));
-        localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(pureNotes));
-    }
+        function loadNotesFromStorage() {
+            const raw = localStorage.getItem(NOTES_STORAGE_KEY);
+            if (!raw) return;
 
-    function loadNotesFromStorage() {
-        const raw = localStorage.getItem(NOTES_STORAGE_KEY);
-        if (!raw) return;
+            try {
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) return;
 
-        try {
-            const parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed)) return;
+                parsed.forEach(item => addNote(item, false));
+                renderNoteList();
+            } catch (e) {
+                console.warn("메모 로드 실패:", e);
+            }
+        }
 
-            parsed.forEach(item => addNote(item, false));
+        function createBubbleElement(note) {
+            const el = document.createElement("div");
+            el.className = "bubble";
+            el.textContent = note.text;
+            bubbleLayerEl.appendChild(el);
+            note.bubbleEl = el;
+        }
+
+        function addNote(noteData, save = true) {
+            const note = {
+                id: noteData.id || ("note_" + Date.now() + "_" + Math.floor(Math.random() * 10000)),
+                text: noteData.text,
+                lon: noteData.lon,
+                lat: noteData.lat,
+                height: noteData.height ?? 2,
+                bubbleEl: null
+            };
+
+            createBubbleElement(note);
+            notes.push(note);
+
+            if (save) saveNotesToStorage();
             renderNoteList();
-        } catch (e) {
-            console.warn("메모 로드 실패:", e);
-        }
-    }
-
-    function createBubbleElement(note) {
-        const el = document.createElement("div");
-        el.className = "bubble";
-        el.textContent = note.text;
-        bubbleLayerEl.appendChild(el);
-        note.bubbleEl = el;
-    }
-
-    function addNote(noteData, save = true) {
-        const note = {
-            id: noteData.id || ("note_" + Date.now() + "_" + Math.floor(Math.random() * 10000)),
-            text: noteData.text,
-            lon: noteData.lon,
-            lat: noteData.lat,
-            height: noteData.height ?? 2,
-            bubbleEl: null
-        };
-
-        createBubbleElement(note);
-        notes.push(note);
-
-        if (save) saveNotesToStorage();
-        renderNoteList();
-    }
-
-    function removeNote(noteId) {
-        const idx = notes.findIndex(n => n.id === noteId);
-        if (idx === -1) return;
-
-        const note = notes[idx];
-        if (note.bubbleEl && note.bubbleEl.parentNode) {
-            note.bubbleEl.parentNode.removeChild(note.bubbleEl);
         }
 
-        notes.splice(idx, 1);
-        saveNotesToStorage();
-        renderNoteList();
-    }
+        function removeNote(noteId) {
+            const idx = notes.findIndex(n => n.id === noteId);
+            if (idx === -1) return;
 
-    function clearAllNotes() {
-        notes.forEach(note => {
+            const note = notes[idx];
             if (note.bubbleEl && note.bubbleEl.parentNode) {
                 note.bubbleEl.parentNode.removeChild(note.bubbleEl);
             }
-        });
-        notes = [];
-        localStorage.removeItem(NOTES_STORAGE_KEY);
-        renderNoteList();
-    }
 
-    function renderNoteList() {
-        noteListEl.innerHTML = "";
-
-        if (notes.length === 0) {
-            noteListEl.innerHTML = `<div class="small">저장된 글이 없습니다.</div>`;
-            return;
+            notes.splice(idx, 1);
+            saveNotesToStorage();
+            renderNoteList();
         }
 
-        notes.forEach(note => {
-            const item = document.createElement("div");
-            item.className = "note-item";
+        function clearAllNotes() {
+            notes.forEach(note => {
+                if (note.bubbleEl && note.bubbleEl.parentNode) {
+                    note.bubbleEl.parentNode.removeChild(note.bubbleEl);
+                }
+            });
+            notes = [];
+            localStorage.removeItem(NOTES_STORAGE_KEY);
+            renderNoteList();
+        }
 
-            item.innerHTML = `
+        function renderNoteList() {
+            noteListEl.innerHTML = "";
+
+            if (notes.length === 0) {
+                noteListEl.innerHTML = `<div class="small">저장된 글이 없습니다.</div>`;
+                return;
+            }
+
+            notes.forEach(note => {
+                const item = document.createElement("div");
+                item.className = "note-item";
+
+                item.innerHTML = `
                 <div><b>${escapeHtml(note.text)}</b></div>
                 <div>lon: ${note.lon.toFixed(6)}</div>
                 <div>lat: ${note.lat.toFixed(6)}</div>
@@ -1490,259 +859,888 @@
                 </div>
             `;
 
-            item.querySelector(".view-btn").addEventListener("click", () => flyToNote(note.id));
-            item.querySelector(".delete-btn").addEventListener("click", () => removeNote(note.id));
+                item.querySelector(".view-btn").addEventListener("click", () => flyToNote(note.id));
+                item.querySelector(".delete-btn").addEventListener("click", () => removeNote(note.id));
 
-            noteListEl.appendChild(item);
-        });
-    }
-
-    function escapeHtml(str) {
-        return String(str)
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-    }
-
-    function flyToNote(noteId) {
-        const note = notes.find(n => n.id === noteId);
-        if (!note) return;
-
-        viewer.camera.flyTo({
-            destination: Cesium.Cartesian3.fromDegrees(note.lon, note.lat, note.height + 30),
-            duration: 1.2
-        });
-    }
-
-    function saveNoteAtCurrentLocation(text) {
-        if (currentLon == null || currentLat == null) {
-            alert("현재 위치가 없습니다.");
-            return;
+                noteListEl.appendChild(item);
+            });
         }
 
-        const note = {
-            id: "note_" + Date.now(),
-            text,
-            lon: currentLon,
-            lat: currentLat,
-            height: groundHeight + 2.0
-        };
-
-        addNote(note, true);
-        showToast("현재 위치에 메모 저장");
-    }
-
-    function updateBubblePosition(note) {
-        if (!note.bubbleEl) return;
-
-        const position = Cesium.Cartesian3.fromDegrees(note.lon, note.lat, note.height);
-        const windowPos = Cesium.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, position);
-
-        if (!windowPos) {
-            note.bubbleEl.style.display = "none";
-            return;
+        function escapeHtml(str) {
+            return String(str)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
         }
 
-        const cameraPosition = viewer.camera.positionWC;
-        const targetVec = Cesium.Cartesian3.subtract(position, cameraPosition, new Cesium.Cartesian3());
-        const dot = Cesium.Cartesian3.dot(viewer.camera.directionWC, Cesium.Cartesian3.normalize(targetVec, targetVec));
+        function flyToNote(noteId) {
+            const note = notes.find(n => n.id === noteId);
+            if (!note) return;
 
-        if (dot <= 0) {
-            note.bubbleEl.style.display = "none";
-            return;
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(note.lon, note.lat, note.height + 30),
+                duration: 1.2
+            });
         }
 
-        note.bubbleEl.style.left = `${windowPos.x}px`;
-        note.bubbleEl.style.top = `${windowPos.y}px`;
-        note.bubbleEl.style.display = "block";
-    }
-
-    function updateAllBubbles() {
-        for (const note of notes) {
-            updateBubblePosition(note);
-        }
-    }
-
-    headingOffsetEl.addEventListener("input", () => {
-        updateOffsetLabels();
-        if (arMode) applyCameraPose();
-    });
-
-    pitchOffsetEl.addEventListener("input", () => {
-        updateOffsetLabels();
-        if (arMode) applyCameraPose();
-    });
-
-    heightOffsetEl.addEventListener("input", () => {
-        updateOffsetLabels();
-        if (currentLon != null && currentLat != null) {
-            if (arMode) applyCameraPose();
-            else moveCameraToCurrentPositionOnly();
-        }
-    });
-
-    tilesetHeightOffsetEl.addEventListener("input", () => {
-        updateOffsetLabels();
-        applyTilesetHeightOffset();
-    });
-
-    fovRangeEl.addEventListener("input", () => {
-        updateOffsetLabels();
-        viewer.camera.frustum.fov = Cesium.Math.toRadians(Number(fovRangeEl.value));
-        viewer.scene.requestRender();
-    });
-
-    saveNoteBtn.addEventListener("click", () => {
-        const text = noteInputEl.value.trim();
-        if (!text) {
-            alert("저장할 글을 입력하세요.");
-            return;
-        }
-
-        saveNoteAtCurrentLocation(text);
-        noteInputEl.value = "";
-    });
-
-    clearNotesBtn.addEventListener("click", () => {
-        const ok = confirm("저장된 글을 모두 삭제할까요?");
-        if (!ok) return;
-        clearAllNotes();
-        showToast("메모 전체 삭제");
-    });
-
-    noteInputEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") saveNoteBtn.click();
-    });
-
-    document.getElementById("calibrateBtn").addEventListener("click", captureCalibrationPose);
-    document.getElementById("resetCalibrateBtn").addEventListener("click", resetCalibration);
-
-    document.getElementById("gpsChip").addEventListener("click", async () => {
-        if (currentLon == null || currentLat == null) {
-            showToast("현재 위치가 아직 없습니다.");
-            return;
-        }
-        await updateGroundHeight(true);
-        if (arMode) applyCameraPose();
-        else moveCameraToCurrentPositionOnly();
-        showToast("현재 위치로 이동");
-    });
-
-    let leftPanelOpen = true;
-
-    panelToggleBtn.addEventListener("click", () => {
-        leftPanelOpen = !leftPanelOpen;
-        leftPanelBody.style.display = leftPanelOpen ? "block" : "none";
-        panelToggleBtn.textContent = leftPanelOpen ? "닫기" : "열기";
-    });
-
-    arToggleBtn.addEventListener("click", () => {
-        if (arMode) stopAR();
-        else startAR();
-    });
-
-    viewer.scene.postRender.addEventListener(() => {
-        updateAllBubbles();
-    });
-
-    function dlog(msg, color = "#4ade80") {
-        const debugLogEl = document.getElementById("debugLog");
-        const t = new Date().toLocaleTimeString("ko-KR", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit"
-        });
-        debugLogEl.innerHTML += `<div style="color:${color}"><span style="color:#666">[${t}]</span> ${msg}</div>`;
-        debugLogEl.scrollTop = debugLogEl.scrollHeight;
-    }
-
-    window.toggleDebug = function() {
-        const p = document.getElementById("debugPanel");
-        const open = p.style.display !== "none";
-        p.style.display = open ? "none" : "block";
-        if (!open) {
-            const ua = navigator.userAgent;
-            dlog("━━━ 환경 체크 ━━━", "#fbbf24");
-            dlog("프로토콜: " + location.protocol + (location.protocol === "https:" ? " ✓" : " ✗"), "#93c5fd");
-            dlog("기기: " + (/iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : "Desktop"), "#93c5fd");
-            dlog("mediaDevices: " + (navigator.mediaDevices ? "✓" : "✗"));
-            dlog("Geolocation: " + (navigator.geolocation ? "✓" : "✗"));
-            dlog("AR mode: " + arMode);
-            dlog("GPS started: " + gpsStarted);
-            dlog("Orientation started: " + orientationStarted);
-            dlog("Camera started: " + cameraStarted);
-            if (currentLon != null && currentLat != null) {
-                dlog(`Current pos: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)} h=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)} ground=${groundHeight.toFixed(1)}`);
-            }
-        }
-    };
-
-    window.debugTestCamera = async function() {
-        dlog("카메라 테스트...", "#93c5fd");
-        try {
-            const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-            const t = s.getVideoTracks()[0];
-            dlog("✓ 성공! " + JSON.stringify(t.getSettings()), "#4ade80");
-            s.getTracks().forEach(track => track.stop());
-        } catch (e) {
-            dlog("✗ " + e.name + ": " + e.message, "#f87171");
-        }
-    };
-
-    window.debugTestGPS = function() {
-        dlog("GPS 테스트...", "#4ade80");
-        navigator.geolocation.getCurrentPosition(
-            p => dlog(`✓ ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)} (±${Math.round(p.coords.accuracy)}m)`, "#4ade80"),
-            e => dlog("✗ " + e.message, "#f87171"),
-            { enableHighAccuracy: true, timeout: 8000 }
-        );
-    };
-
-    window.debugTestOrientation = async function() {
-        dlog("센서 테스트...", "#fbbf24");
-        if (typeof DeviceOrientationEvent?.requestPermission === "function") {
-            try {
-                const r = await DeviceOrientationEvent.requestPermission();
-                dlog("iOS 권한: " + r, r === "granted" ? "#4ade80" : "#f87171");
-                if (r !== "granted") return;
-            } catch (e) {
-                dlog("권한 오류: " + e.message, "#f87171");
+        function saveNoteAtCurrentLocation(text) {
+            if (currentLon == null || currentLat == null) {
+                alert("현재 위치가 없습니다.");
                 return;
             }
+
+            const note = {
+                id: "note_" + Date.now(),
+                text,
+                lon: currentLon,
+                lat: currentLat,
+                height: groundHeight + 2.0
+            };
+
+            addNote(note, true);
+            showToast("현재 위치에 메모 저장");
         }
 
-        let cnt = 0;
-        const h = (e) => {
-            cnt++;
-            if (cnt === 1 || cnt % 20 === 0) {
-                const heading = e.webkitCompassHeading ?? ((360 - (e.alpha || 0)) % 360);
-                dlog(`#${cnt} heading=${heading.toFixed(1)} beta=${(e.beta || 0).toFixed(1)} gamma=${(e.gamma || 0).toFixed(1)}`);
+        function updateBubblePosition(note) {
+            if (!note.bubbleEl) return;
+
+            const position = Cesium.Cartesian3.fromDegrees(note.lon, note.lat, note.height);
+            const windowPos = Cesium.SceneTransforms.wgs84ToWindowCoordinates(viewer.scene, position);
+
+            if (!windowPos) {
+                note.bubbleEl.style.display = "none";
+                return;
+            }
+
+            const cameraPosition = viewer.camera.positionWC;
+            const targetVec = Cesium.Cartesian3.subtract(position, cameraPosition, new Cesium.Cartesian3());
+            const dot = Cesium.Cartesian3.dot(viewer.camera.directionWC, Cesium.Cartesian3.normalize(targetVec, targetVec));
+
+            if (dot <= 0) {
+                note.bubbleEl.style.display = "none";
+                return;
+            }
+
+            note.bubbleEl.style.left = `${windowPos.x}px`;
+            note.bubbleEl.style.top = `${windowPos.y}px`;
+            note.bubbleEl.style.display = "block";
+        }
+
+        function updateAllBubbles() {
+            for (const note of notes) {
+                updateBubblePosition(note);
+            }
+        }
+
+        headingOffsetEl.addEventListener("input", () => {
+            updateOffsetLabels();
+            if (arMode) applyCameraPose();
+        });
+
+        pitchOffsetEl.addEventListener("input", () => {
+            updateOffsetLabels();
+            if (arMode) applyCameraPose();
+        });
+
+        heightOffsetEl.addEventListener("input", () => {
+            updateOffsetLabels();
+            if (currentLon != null && currentLat != null) {
+                if (arMode) applyCameraPose();
+                else moveCameraToCurrentPositionOnly();
+            }
+        });
+
+        tilesetHeightOffsetEl.addEventListener("input", () => {
+            updateOffsetLabels();
+            applyTilesetHeightOffset();
+        });
+
+        fovRangeEl.addEventListener("input", () => {
+            updateOffsetLabels();
+            viewer.camera.frustum.fov = Cesium.Math.toRadians(Number(fovRangeEl.value));
+            viewer.scene.requestRender();
+        });
+
+        saveNoteBtn.addEventListener("click", () => {
+            const text = noteInputEl.value.trim();
+            if (!text) {
+                alert("저장할 글을 입력하세요.");
+                return;
+            }
+
+            saveNoteAtCurrentLocation(text);
+            noteInputEl.value = "";
+        });
+
+        clearNotesBtn.addEventListener("click", () => {
+            const ok = confirm("저장된 글을 모두 삭제할까요?");
+            if (!ok) return;
+            clearAllNotes();
+            showToast("메모 전체 삭제");
+        });
+
+        noteInputEl.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") saveNoteBtn.click();
+        });
+
+        document.getElementById("calibrateBtn").addEventListener("click", captureCalibrationPose);
+        document.getElementById("resetCalibrateBtn").addEventListener("click", resetCalibration);
+
+        document.getElementById("gpsChip").addEventListener("click", async () => {
+            if (currentLon == null || currentLat == null) {
+                showToast("현재 위치가 아직 없습니다.");
+                return;
+            }
+            await updateGroundHeight(true);
+            if (arMode) applyCameraPose();
+            else moveCameraToCurrentPositionOnly();
+            showToast("현재 위치로 이동");
+        });
+
+        let leftPanelOpen = true;
+
+        panelToggleBtn.addEventListener("click", () => {
+            leftPanelOpen = !leftPanelOpen;
+            leftPanelBody.style.display = leftPanelOpen ? "block" : "none";
+            panelToggleBtn.textContent = leftPanelOpen ? "닫기" : "열기";
+        });
+
+        arToggleBtn.addEventListener("click", () => {
+            if (arMode) stopAR();
+            else startAR();
+        });
+
+        viewer.scene.postRender.addEventListener(() => {
+            updateAllBubbles();
+        });
+
+        function dlog(msg, color = "#4ade80") {
+            const debugLogEl = document.getElementById("debugLog");
+            const t = new Date().toLocaleTimeString("ko-KR", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit"
+            });
+            debugLogEl.innerHTML += `<div style="color:${color}"><span style="color:#666">[${t}]</span> ${msg}</div>`;
+            debugLogEl.scrollTop = debugLogEl.scrollHeight;
+        }
+
+        window.toggleDebug = function() {
+            const p = document.getElementById("debugPanel");
+            const open = p.style.display !== "none";
+            p.style.display = open ? "none" : "block";
+            if (!open) {
+                const ua = navigator.userAgent;
+                dlog("━━━ 환경 체크 ━━━", "#fbbf24");
+                dlog("프로토콜: " + location.protocol + (location.protocol === "https:" ? " ✓" : " ✗"), "#93c5fd");
+                dlog("기기: " + (/iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : "Desktop"), "#93c5fd");
+                dlog("mediaDevices: " + (navigator.mediaDevices ? "✓" : "✗"));
+                dlog("Geolocation: " + (navigator.geolocation ? "✓" : "✗"));
+                dlog("AR mode: " + arMode);
+                dlog("GPS started: " + gpsStarted);
+                dlog("Orientation started: " + orientationStarted);
+                dlog("Camera started: " + cameraStarted);
+                if (currentLon != null && currentLat != null) {
+                    dlog(`Current pos: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)} h=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)} ground=${groundHeight.toFixed(1)}`);
+                }
             }
         };
-        window.addEventListener("deviceorientation", h, true);
-        setTimeout(() => {
-            window.removeEventListener("deviceorientation", h, true);
-            dlog("총 " + cnt + "개 " + (cnt > 0 ? "✓" : "✗"), cnt > 0 ? "#4ade80" : "#f87171");
-        }, 5000);
-    };
 
-    window.addEventListener("beforeunload", () => {
-        stopOrientationTracking();
-        stopCamera();
-        stopGeolocation();
-    });
+        window.debugTestCamera = async function() {
+            dlog("카메라 테스트...", "#93c5fd");
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                const t = s.getVideoTracks()[0];
+                dlog("✓ 성공! " + JSON.stringify(t.getSettings()), "#4ade80");
+                s.getTracks().forEach(track => track.stop());
+            } catch (e) {
+                dlog("✗ " + e.name + ": " + e.message, "#f87171");
+            }
+        };
 
-    updateOffsetLabels();
-    updateGPSChip();
-    loadNotesFromStorage();
-    renderNoteList();
-    updateSensorText();
-    updateCoordText();
-    updateTilesetText();
-</script>
+        window.debugTestGPS = function() {
+            dlog("GPS 테스트...", "#4ade80");
+            navigator.geolocation.getCurrentPosition(
+                p => dlog(`✓ ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)} (±${Math.round(p.coords.accuracy)}m)`, "#4ade80"),
+                e => dlog("✗ " + e.message, "#f87171"),
+                { enableHighAccuracy: true, timeout: 8000 }
+            );
+        };
+
+        window.debugTestOrientation = async function() {
+            dlog("센서 테스트...", "#fbbf24");
+            if (typeof DeviceOrientationEvent?.requestPermission === "function") {
+                try {
+                    const r = await DeviceOrientationEvent.requestPermission();
+                    dlog("iOS 권한: " + r, r === "granted" ? "#4ade80" : "#f87171");
+                    if (r !== "granted") return;
+                } catch (e) {
+                    dlog("권한 오류: " + e.message, "#f87171");
+                    return;
+                }
+            }
+
+            let cnt = 0;
+            const h = (e) => {
+                cnt++;
+                if (cnt === 1 || cnt % 20 === 0) {
+                    const heading = e.webkitCompassHeading ?? ((360 - (e.alpha || 0)) % 360);
+                    dlog(`#${cnt} heading=${heading.toFixed(1)} beta=${(e.beta || 0).toFixed(1)} gamma=${(e.gamma || 0).toFixed(1)}`);
+                }
+            };
+            window.addEventListener("deviceorientation", h, true);
+            setTimeout(() => {
+                window.removeEventListener("deviceorientation", h, true);
+                dlog("총 " + cnt + "개 " + (cnt > 0 ? "✓" : "✗"), cnt > 0 ? "#4ade80" : "#f87171");
+            }, 5000);
+        };
+
+        window.addEventListener("beforeunload", () => {
+            stopOrientationTracking();
+            stopCamera();
+            stopGeolocation();
+        });
+
+        updateOffsetLabels();
+        updateGPSChip();
+        loadNotesFromStorage();
+        renderNoteList();
+        updateSensorText();
+        updateCoordText();
+        updateTilesetText();
+    </script>
+</head>
+<body>
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <div id="cesiumContainer"></div>
+    <div id="bubbleLayer"></div>
+
+    <div id="ui">
+        <div class="top-bar">
+            <div class="live-badge" id="liveBadge"><span class="dot"></span>AR</div>
+        </div>
+
+        <div class="left-panel" id="leftPanel">
+            <div class="panel">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                    <h3 style="margin:0;">상태 / 보정 / 메모</h3>
+                    <button class="btn secondary small" id="panelToggleBtn" type="button">닫기</button>
+                </div>
+
+                <div id="leftPanelBody" style="margin-top:10px;">
+                    <div class="status" id="status">초기화 대기중...</div>
+
+                    <div class="row">
+                        <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
+                        <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
+                    </div>
+
+                    <div class="row">
+                        <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
+                        <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
+                    </div>
+
+                    <div class="row">
+                        <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
+                        <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
+                    </div>
+
+                    <div class="row">
+                        <div class="label"><span>Tileset Height (m)</span><span id="tilesetHeightVal">0</span></div>
+                        <input id="tilesetHeightOffset" type="range" min="-150" max="150" step="1" value="0" />
+                    </div>
+
+                    <div class="row">
+                        <div class="label"><span>FOV</span><span id="fovVal">60</span></div>
+                        <input id="fovRange" type="range" min="35" max="80" step="1" value="60" />
+                    </div>
+
+                    <div class="row">
+                        <div class="hstack">
+                            <button class="btn secondary" id="calibrateBtn">현재 자세 기준 보정</button>
+                            <button class="btn secondary" id="resetCalibrateBtn">보정 초기화</button>
+                        </div>
+                    </div>
+
+                    <div class="small" id="coordText">현재 좌표: 아직 없음</div>
+                    <div class="small" id="sensorText">센서값: 아직 없음</div>
+                    <div class="small" id="tilesetText">타일셋: 아직 없음</div>
+
+                    <div class="panel" style="margin:12px 0 0 0;">
+                        <h3>위치 메모</h3>
+                        <input id="noteInput" type="text" placeholder="현재 위치에 저장할 글 입력" />
+                        <button class="btn" id="saveNoteBtn">현재 위치에 글 저장</button>
+                        <div class="hint">현재 GPS 좌표에 저장됩니다. 새로고침 후에도 유지됩니다.</div>
+
+                        <button class="btn danger" id="clearNotesBtn">저장된 글 전체 삭제</button>
+
+                        <div id="noteList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-bar">
+            <div class="chip" id="gpsChip" style="cursor:pointer;">
+                <div class="chip-row"><span class="chip-label">위도</span><span id="latEl">—</span></div>
+                <div class="chip-row"><span class="chip-label">경도</span><span id="lonEl">—</span></div>
+                <div class="chip-row"><span class="chip-label">정확도</span><span id="accEl">—</span></div>
+            </div>
+
+            <button class="ar-toggle off" id="arToggleBtn">AR 시작</button>
+
+            <div class="compass-wrap">
+                <div class="compass">
+                    <span class="compass-n">N</span>
+                    <div class="needle" id="compassNeedle"></div>
+                </div>
+                <span class="deg" id="headEl">—°</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <div id="debugTab">
+        <button onclick="toggleDebug()">DEBUG</button>
+    </div>
+
+    <div class="debug-panel" id="debugPanel">
+        <div class="debug-head">
+            <span class="debug-head-title">AR 디버그</span>
+            <button onclick="toggleDebug()">닫기</button>
+        </div>
+        <div id="debugLog"></div>
+        <div class="debug-actions">
+            <button onclick="debugTestCamera()">카메라</button>
+            <button onclick="debugTestGPS()">GPS</button>
+            <button onclick="debugTestOrientation()">센서</button>
+            <button onclick="document.getElementById('debugLog').innerHTML=''">지우기</button>
+        </div>
+    </div>
+
 </body>
+
+<style>
+    :root {
+        --accent: #2d7ef7;
+        --danger: #d74c4c;
+        --ok: #22c55e;
+        --warn: #f59e0b;
+        --glass: rgba(0,0,0,0.55);
+        --glass-2: rgba(255,255,255,0.08);
+        --border: rgba(255,255,255,0.15);
+        --text: #fff;
+        --muted: rgba(255,255,255,0.75);
+    }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        font-family: sans-serif;
+    }
+
+    #cameraVideo {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background: #000;
+        z-index: 0;
+        display: none;
+    }
+
+    #cesiumContainer {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        background: transparent !important;
+    }
+
+    #cesiumContainer canvas {
+        background: transparent !important;
+    }
+
+    #bubbleLayer {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        pointer-events: none;
+    }
+
+    .bubble {
+        position: fixed;
+        transform: translate(-50%, -100%);
+        background: white;
+        color: black;
+        border: 3px solid black;
+        border-radius: 22px;
+        padding: 12px 18px;
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.25;
+        white-space: pre-line;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+        max-width: 220px;
+        text-align: center;
+        display: none;
+        pointer-events: none;
+    }
+
+    .bubble::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -14px;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 12px solid transparent;
+        border-right: 12px solid transparent;
+        border-top: 14px solid black;
+    }
+
+    .bubble::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -10px;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 9px solid transparent;
+        border-right: 9px solid transparent;
+        border-top: 11px solid white;
+        z-index: 1;
+    }
+
+    #ui {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        pointer-events: none;
+    }
+
+    .panel, .btn, .chip, .toast, .debug-panel {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .top-bar {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        pointer-events: auto;
+    }
+
+    .live-badge {
+        display: none;
+        align-items: center;
+        gap: 6px;
+        background: rgba(45,126,247,0.9);
+        border-radius: 999px;
+        padding: 10px 14px;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .live-badge.show {
+        display: inline-flex;
+    }
+
+    .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #fff;
+        animation: blink 1.2s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+        0%,100% { opacity: 1; }
+        50% { opacity: 0.35; }
+    }
+
+    .left-panel {
+        position: absolute;
+        left: 12px;
+        top: 62px;
+        width: 320px;
+        max-width: calc(100vw - 24px);
+        max-height: calc(100vh - 160px);
+        overflow-y: auto;
+        pointer-events: auto;
+    }
+
+    .panel {
+        background: var(--glass);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 12px;
+        margin-bottom: 10px;
+    }
+
+    .panel h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+    }
+
+    .status {
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 8px;
+        line-height: 1.45;
+        word-break: break-word;
+    }
+
+    .row {
+        margin-top: 10px;
+    }
+
+    .label {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    .btn {
+        width: 100%;
+        border: none;
+        border-radius: 10px;
+        padding: 11px 12px;
+        margin-top: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 700;
+        background: var(--accent);
+        color: #fff;
+    }
+
+    .btn.secondary {
+        background: #555;
+    }
+
+    .btn.danger {
+        background: var(--danger);
+    }
+
+    .btn.success {
+        background: var(--ok);
+    }
+
+    .btn.small {
+        width: auto;
+        padding: 8px 10px;
+        font-size: 12px;
+        margin-top: 0;
+    }
+
+    input[type="range"],
+    input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    input[type="text"] {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+
+    input[type="range"] {
+        accent-color: var(--accent);
+    }
+
+    .small {
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--muted);
+        word-break: break-all;
+        line-height: 1.45;
+    }
+
+    .hint {
+        margin-top: 4px;
+        font-size: 11px;
+        color: rgba(255,255,255,0.68);
+        line-height: 1.4;
+    }
+
+    .hstack {
+        display: flex;
+        gap: 8px;
+    }
+
+    .hstack .btn {
+        flex: 1;
+    }
+
+    .bottom-bar {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 12px;
+        pointer-events: auto;
+    }
+
+    .chip {
+        background: var(--glass);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 10px 12px;
+        min-width: 130px;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .chip-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .chip-label {
+        color: var(--muted);
+    }
+
+    .acc-good { color: #4ade80; }
+    .acc-ok   { color: #fbbf24; }
+    .acc-bad  { color: #f87171; }
+
+    .ar-toggle {
+        border: none;
+        border-radius: 999px;
+        padding: 14px 18px;
+        font-size: 15px;
+        font-weight: 800;
+        cursor: pointer;
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 6px 20px rgba(45,126,247,0.35);
+        min-width: 180px;
+    }
+
+    .ar-toggle.off {
+        background: var(--accent);
+    }
+
+    .ar-toggle.on {
+        background: var(--danger);
+        box-shadow: 0 6px 20px rgba(215,76,76,0.35);
+    }
+
+    .compass-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .compass {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--glass);
+        border: 1px solid var(--border);
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .compass-n {
+        position: absolute;
+        top: 6px;
+        font-size: 9px;
+        font-weight: 800;
+        color: #f87171;
+    }
+
+    .needle {
+        width: 2px;
+        height: 20px;
+        position: absolute;
+        left: calc(50% - 1px);
+        bottom: 50%;
+        transform-origin: bottom center;
+        border-radius: 2px;
+        background: linear-gradient(to top, rgba(255,255,255,0.25) 50%, #f87171 50%);
+    }
+
+    .deg {
+        font-size: 11px;
+        color: var(--muted);
+    }
+
+    #noteList {
+        margin-top: 8px;
+        max-height: 180px;
+        overflow-y: auto;
+        border-top: 1px solid rgba(255,255,255,0.16);
+        padding-top: 8px;
+    }
+
+    .note-item {
+        background: rgba(255,255,255,0.08);
+        padding: 8px;
+        border-radius: 10px;
+        margin-bottom: 6px;
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    .note-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+    }
+
+    .note-actions button {
+        flex: 1;
+        margin-top: 0;
+        padding: 7px 8px;
+        font-size: 12px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        color: #fff;
+        background: #555;
+    }
+
+    .note-actions button.danger {
+        background: var(--danger);
+    }
+
+    .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 88px;
+        transform: translateX(-50%) translateY(12px);
+        background: rgba(10,18,40,0.92);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 12px;
+        padding: 11px 16px;
+        z-index: 200;
+        font-size: 13px;
+        opacity: 0;
+        transition: opacity 0.2s, transform 0.2s;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+
+    .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    #debugTab {
+        position: fixed;
+        top: 50%;
+        right: 0;
+        transform: translateY(-50%);
+        z-index: 300;
+        pointer-events: auto;
+    }
+
+    #debugTab button {
+        background: rgba(251,191,36,0.9);
+        border: none;
+        color: #000;
+        font-size: 10px;
+        font-weight: 800;
+        padding: 6px 8px;
+        border-radius: 6px 0 0 6px;
+        cursor: pointer;
+        writing-mode: vertical-rl;
+        letter-spacing: 1px;
+    }
+
+    .debug-panel {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 299;
+        background: rgba(0,0,0,0.92);
+        color: #4ade80;
+        padding: 56px 14px 14px;
+        overflow-y: auto;
+        pointer-events: auto;
+        font-family: monospace;
+        font-size: 11px;
+        line-height: 1.8;
+    }
+
+    .debug-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .debug-head-title {
+        color: #fbbf24;
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+    .debug-head button,
+    .debug-actions button {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.18);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 11px;
+    }
+
+    .debug-actions {
+        margin-top: 14px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 768px) {
+        .left-panel {
+            width: 280px;
+            max-width: calc(100vw - 24px);
+            max-height: 42vh;
+        }
+
+        .bottom-bar {
+            align-items: center;
+        }
+
+        .ar-toggle {
+            min-width: 150px;
+        }
+    }
+</style>
 </html>
 
 
