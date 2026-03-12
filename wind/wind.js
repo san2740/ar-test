@@ -580,7 +580,7 @@ export default class Wind {
             rawRenderState: this.createRawRenderState({
                 // viewport: undefined,
                 depthTest: {
-                    enabled: true,
+                    enabled: false,
                 },
                 depthMask: true,
                 blending: {
@@ -849,6 +849,7 @@ export default class Wind {
 
 
 }
+
 
 
 
