@@ -1684,7 +1684,7 @@
             const ua = navigator.userAgent;
             dlog("━━━ 환경 체크 ━━━", "#fbbf24");
             dlog("프로토콜: " + location.protocol + (location.protocol === "https:" ? " ✓" : " ✗"), "#93c5fd");
-            dlog("기기: " + (/iPhone|iPad/.test(ua) ? "🍎 iOS" : /Android/.test(ua) ? "🤖 Android" : "💻 Desktop"), "#93c5fd");
+            dlog("기기: " + (/iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : "Desktop"), "#93c5fd");
             dlog("mediaDevices: " + (navigator.mediaDevices ? "✓" : "✗"));
             dlog("Geolocation: " + (navigator.geolocation ? "✓" : "✗"));
             dlog("AR mode: " + arMode);
@@ -1698,7 +1698,7 @@
     };
 
     window.debugTestCamera = async function() {
-        dlog("📷 카메라 테스트...", "#93c5fd");
+        dlog("카메라 테스트...", "#93c5fd");
         try {
             const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
             const t = s.getVideoTracks()[0];
@@ -1710,7 +1710,7 @@
     };
 
     window.debugTestGPS = function() {
-        dlog("📍 GPS 테스트...", "#4ade80");
+        dlog("GPS 테스트...", "#4ade80");
         navigator.geolocation.getCurrentPosition(
             p => dlog(`✓ ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)} (±${Math.round(p.coords.accuracy)}m)`, "#4ade80"),
             e => dlog("✗ " + e.message, "#f87171"),
@@ -1719,7 +1719,7 @@
     };
 
     window.debugTestOrientation = async function() {
-        dlog("🧭 센서 테스트...", "#fbbf24");
+        dlog("센서 테스트...", "#fbbf24");
         if (typeof DeviceOrientationEvent?.requestPermission === "function") {
             try {
                 const r = await DeviceOrientationEvent.requestPermission();
@@ -1762,4 +1762,5 @@
 </script>
 </body>
 </html>
+
 
