@@ -63,7 +63,7 @@ export default class Wind {
             projection: 'regular',  // 'regular', 'lambert-conformal-conic'
             textureSize: 1000,
             speedFactor: 1000.0,
-            renderingType: 'triangle',
+            renderingType: 'line',
             // trailLength: 5,
             point: {
                 size: 2,
@@ -148,7 +148,7 @@ export default class Wind {
         )))
         const windPosition = new ComputePrimitive({
             fragmentShaderSource: new Cesium.ShaderSource({
-                sources: [(that.projection === 'lambert-conformal-conic') ? fragmentShader_calculateWindPosition_lcc : fragmentShader_calculateWindPosition]
+                sources: [fragmentShader_calculateWindPosition]
             }),
             uniformMap: Object.assign({}, {
                 windPositionTexture: function () {
@@ -849,6 +849,7 @@ export default class Wind {
 
 
 }
+
 
 
 
