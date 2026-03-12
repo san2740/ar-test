@@ -7,15 +7,7 @@
 
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet"/>
-   <script type="module">
-      import Wind from "./wind/wind.js";
-    
-      window.WindModule = {
-        Wind
-      };
-    
-      console.log("Wind module loaded:", Wind);
-    </script>
+
 </head>
 <body>
 
@@ -1432,6 +1424,16 @@
         updateTilesetText();
     </script>
 
+    <script type="module">
+      import Wind from "./wind/wind.js";
+    
+      window.WindModule = {
+        Wind
+      };
+    
+      console.log("Wind module loaded:", Wind);
+    </script>
+
 </body>
 
 <style>
@@ -1953,6 +1955,7 @@
     }
 </style>
 </html>
+
 
 
 
