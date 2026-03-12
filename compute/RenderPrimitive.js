@@ -1,5 +1,3 @@
-import * as Cesium from "cesium";
-
 export default class RenderPrimitive {
     show = true;
 
@@ -85,4 +83,5 @@ export default class RenderPrimitive {
         }
         return Cesium.destroyObject(this);
     }
+
 }
