@@ -1,4 +1,3 @@
-import * as Cesium from "cesium";
 
 export default class ComputePrimitive {
     constructor(options) {
@@ -37,4 +36,5 @@ export default class ComputePrimitive {
         }
         return Cesium.destroyObject(this);
     }
+
 }
