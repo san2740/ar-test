@@ -209,8 +209,6 @@
         let windEntities = [];
         let windVisible = false;
         let windJsonCache = null;
-
-        let windModuleReady = false;
         
         const viewer = new Cesium.Viewer("cesiumContainer", {
             animation: false,
@@ -1230,7 +1228,7 @@
                 statusEl.textContent = "바람 데이터 불러오는 중...";
                 showToast("wind.json 로드중...");
         
-                if (!windModuleReady || !window.WindModule || !window.WindModule.Wind) {
+                if (!window.windModuleReady || !window.WindModule || !window.WindModule.Wind) {
                     throw new Error("wind.js 모듈이 아직 로드되지 않았습니다.");
                 }
         
@@ -1962,6 +1960,7 @@
     }
 </style>
 </html>
+
 
 
 
