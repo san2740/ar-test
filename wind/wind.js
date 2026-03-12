@@ -572,7 +572,7 @@ export default class Wind {
                 }
             } : {}),
             vertexShaderSource: new Cesium.ShaderSource({
-                sources: [(that.projection === 'lambert-conformal-conic') ? vertexShader_ecef2projected_line_lcc : vertexShader_ecef2projected_line]
+                sources: [vertexShader_ecef2projected_line]
             }),
             fragmentShaderSource: new Cesium.ShaderSource({
                 sources: [fragmentShader_ecef2projected_line]
@@ -580,7 +580,7 @@ export default class Wind {
             rawRenderState: this.createRawRenderState({
                 // viewport: undefined,
                 depthTest: {
-                    enabled: false,
+                    enabled: true,
                 },
                 depthMask: true,
                 blending: {
@@ -849,6 +849,7 @@ export default class Wind {
 
 
 }
+
 
 
 
