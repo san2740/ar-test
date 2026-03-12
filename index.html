@@ -1425,18 +1425,24 @@
     </script>
 
     <script type="module">
-      import Wind from "./wind/wind.js";
-    
-      window.WindModule = { Wind };
-      window.windModuleReady = true;
-    
-      const statusEl = document.getElementById("status");
-      const loadWindBtn = document.getElementById("loadWindBtn");
-    
-      if (loadWindBtn) loadWindBtn.disabled = false;
-      if (statusEl) statusEl.textContent = "wind.js 모듈 로드 완료";
-    
-      console.log("Wind module loaded:", Wind);
+          const statusEl = document.getElementById("status");
+          const loadWindBtn = document.getElementById("loadWindBtn");
+        
+          try {
+            console.log("module script start");
+        
+            const mod = await import("./wind/wind.js");
+            console.log("wind module import success:", mod);
+        
+            window.WindModule = { Wind: mod.default };
+            window.windModuleReady = true;
+        
+            if (loadWindBtn) loadWindBtn.disabled = false;
+            if (statusEl) statusEl.textContent = "wind.js 모듈 로드 완료";
+          } catch (e) {
+            console.error("wind.js import failed:", e);
+            if (statusEl) statusEl.textContent = "wind.js 모듈 로드 실패: " + e.message;
+          }
     </script>
 
 </body>
@@ -1960,6 +1966,7 @@
     }
 </style>
 </html>
+
 
 
 
