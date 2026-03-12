@@ -244,103 +244,7 @@ export default class Wind {
             }
         })
 
-        // wind color
-        // const windColorTexture = this.createTexture({
-        //     context: context,
-        //     width: textureSize,
-        //     height: textureSize,
-        //     pixelFormat: Cesium.PixelFormat.RGBA,
-        //     pixelDatatype: Cesium.PixelDatatype.FLOAT,
-        //     flipY: false,
-        //     sampler: new Cesium.Sampler({
-        //         // the values of texture will not be interpolated
-        //         minificationFilter: Cesium.TextureMinificationFilter.NEAREST,       // => LINEAR 로 사용 대체 확인 필요
-        //         magnificationFilter: Cesium.TextureMagnificationFilter.NEAREST      // => LINEAR 로 사용 대체 확인 필요
-        //     }),
-        // }, new Float32Array(new Array(textureSize * textureSize * 4).fill(0)
-        //     // .map((e, i) => Math.random())
-        // ))
-        // const windColor = new ComputePrimitive({
-        //     fragmentShaderSource: new Cesium.ShaderSource({
-        //         sources: [fragmentShader_calculateWindColor]
-        //     }),
-        //     uniformMap: {
-        //         windPositionTexture: function () {
-        //             return windPositionTextures[0]
-        //         },
-        //         windSpeedTextures: function () {
-        //             return combinedWindSpeedTextures;
-        //         },
-        //         dimensions: function () {
-        //             return new Cesium.Cartesian3(dimension[0], dimension[1], altitudes.length);
-        //         },
-        //         altitudes: function () {
-        //             return altitudes;
-        //         },
-        //         minValues: function () {
-        //             return new Cesium.Cartesian3(valueMinMax[0][0], valueMinMax[1][0], valueMinMax[2][0]);
-        //         },
-        //         maxValues: function () {
-        //             return new Cesium.Cartesian3(valueMinMax[0][1], valueMinMax[1][1], valueMinMax[2][1]);
-        //         },
-        //         bounds: function () {
-        //             return volume.bounds.map(v => new Cesium.Cartesian3(v[0], v[1], v[2])).slice(0, 4);
-        //         },
-        //         altitudeBounds: function () {
-        //             return volume.getAltitudeRange();
-        //         },
-        //         colorMode: function () {
-        //             return that.colorMode === 'windspeed' ? 0 :
-        //                 that.colorMode === 'altitude' ? 1 :
-        //                     that.colorMode === 'relativehumidity' ? 2 :
-        //                         0;
-        //         }
-        //     },
-        //     outputTexture: windColorTexture
-        // })
-
-        // normalized position => ecef
-        // let ecefPositionTextures = new Array(trailLength).fill(0).map(() => this.createTexture({
-        //     context: context,
-        //     width: textureSize,
-        //     height: textureSize,
-        //     pixelFormat: Cesium.PixelFormat.RGBA,
-        //     pixelDatatype: Cesium.PixelDatatype.FLOAT,
-        //     flipY: false,
-        //     sampler: new Cesium.Sampler({
-        //         // the values of texture will not be interpolated
-        //         minificationFilter: Cesium.TextureMinificationFilter.NEAREST,       // => LINEAR 로 사용 대체 확인 필요
-        //         magnificationFilter: Cesium.TextureMagnificationFilter.NEAREST      // => LINEAR 로 사용 대체 확인 필요
-        //     }),
-        // }, new Float32Array(new Array(textureSize * textureSize * 4).fill(0)
-        //     // .map((e, i) => Math.random())
-        // )))
-        // const normalized2ECEFs = new Array(trailLength).fill(0).map((v, i) => new ComputePrimitive({
-        //     fragmentShaderSource: new Cesium.ShaderSource({
-        //         sources: [fragmentShader_normalized2ecef]
-        //     }),
-        //     uniformMap: {
-        //         windPositionTexture: function () {
-        //             return windPositionTextures[i]
-        //         },
-        //         bounds: function () {
-        //             return volume.bounds.map(v => new Cesium.Cartesian3(v[0], v[1], v[2])).slice(0, 5);
-        //         },
-        //         altitudeBounds: function () {
-        //             return volume.getAltitudeRange();
-        //         },
-        //         verticalScale: function () {
-        //             return that.verticalScale || 1.0; // vertical scale factor for altitude
-        //         }
-        //     },
-        //     outputTexture: ecefPositionTextures[i],
-        // }));
-
-        const ecefToProjected =
-            (renderingType === 'point') ? this.createRenderingPoint(context, windPositionTextures[0]) :
-                (renderingType === 'line') ? this.createRenderingLine(context, windPositionTextures) :
-                    (renderingType === 'triangle') ? this.createRenderingTriangle(viewer, context, windPositionTextures) :
-                        this.createRenderingPoint(context, windPositionTextures[0])
+        const ecefToProjected = this.createRenderingLine(context, windPositionTextures)
 
         collection.add(windPosition)
         collection.add(ecefToProjected)
@@ -565,7 +469,7 @@ export default class Wind {
                 sources: [(that.projection === 'lambert-conformal-conic') ? vertexShader_ecef2projected_point_lcc : vertexShader_ecef2projected_point]
             }),
             fragmentShaderSource: new Cesium.ShaderSource({
-                sources: [fragmentShader_ecef2projected_point]
+                sources: [fragmentShader_ecef2projected_line]
             }),
             rawRenderState: this.createRawRenderState({
                 // viewport: undefined,
@@ -945,6 +849,7 @@ export default class Wind {
 
 
 }
+
 
 
 
