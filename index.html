@@ -806,7 +806,6 @@
             try {
                 statusEl.textContent = "권한 요청중...";
 
-                await startCamera();
                 await requestiOSMotionPermissionIfNeeded();
                 startOrientationTracking();
 
@@ -820,6 +819,8 @@
                 updateCoordText();
                 updateGPSChip();
                 applyCameraPose();
+
+                await startCamera();
 
                 arMode = true;
                 arToggleBtn.className = "ar-toggle on";
@@ -1743,6 +1744,7 @@
     }
 </style>
 </html>
+
 
 
 
