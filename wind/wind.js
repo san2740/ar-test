@@ -55,7 +55,7 @@ const fragmentShader_screenDraw =
 
 export default class Wind {
     static MIN_TRAIL_LENGTH = 2;
-    static MAX_TRAIL_LENGTH = 15;
+    static MAX_TRAIL_LENGTH = 5;
 
     constructor(viewer, context, options) {
         const refinedOptions = Object.assign({
@@ -840,6 +840,7 @@ export default class Wind {
 
 
 }
+
 
 
 
