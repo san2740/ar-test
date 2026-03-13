@@ -406,10 +406,7 @@ export default class Wind {
                     return that.particleRate ?? 1.0; // particle rate for rendering
                 },
                 colorMode: function () {
-                    return that.colorMode === 'windspeed' ? 0 :
-                        that.colorMode === 'altitude' ? 1 :
-                            that.colorMode === 'relativehumidity' ? 2 :
-                                0;
+                    return 0;
                 },
                 bounds: function () {
                     return that.volume.bounds.map(v => new Cesium.Cartesian3(v[0], v[1], v[2])).slice(0, 5);
@@ -439,7 +436,7 @@ export default class Wind {
                     return that.highlights ?? [];
                 },
                 customColorTextures: function () {
-                    return (that.colorMode === 'relativehumidity') ? (that.customColorTextures || {}) : {}
+                    return that.customColorTextures
                 },
             }, (that.projection === 'lambert-conformal-conic') ? {
                 // lambertConformalConic
@@ -512,10 +509,7 @@ export default class Wind {
                     return that.particleRate ?? 1.0; // particle rate for rendering
                 },
                 colorMode: function () {
-                    return that.colorMode === 'windspeed' ? 0 :
-                        that.colorMode === 'altitude' ? 1 :
-                            that.colorMode === 'relativehumidity' ? 2 :
-                                0;
+                    return 0;
                 },
                 bounds: function () {
                     return that.volume.bounds.map(v => new Cesium.Cartesian3(v[0], v[1], v[2])).slice(0, 5);
@@ -545,7 +539,7 @@ export default class Wind {
                     return that.highlights ?? [];
                 },
                 customColorTextures: function () {
-                    return (that.colorMode === 'relativehumidity') ? (that.customColorTextures || {}) : {}
+                    return that.customColorTextures;
                 },
             }, (that.projection === 'lambert-conformal-conic') ? {
                 // lambertConformalConic
@@ -625,10 +619,7 @@ export default class Wind {
                     return that.particleRate ?? 1.0; // particle rate for rendering
                 },
                 colorMode: function () {
-                    return that.colorMode === 'windspeed' ? 0 :
-                        that.colorMode === 'altitude' ? 1 :
-                            that.colorMode === 'relativehumidity' ? 2 :
-                                0;
+                    return  0;
                 },
                 bounds: function () {
                     return that.volume.bounds.map(v => new Cesium.Cartesian3(v[0], v[1], v[2])).slice(0, 5);
@@ -658,7 +649,7 @@ export default class Wind {
                     return that.highlights ?? [];
                 },
                 customColorTextures: function () {
-                    return (that.colorMode === 'relativehumidity') ? (that.customColorTextures || {}) : {}
+                    return that.customColorTextures
                 },
             }, (that.projection === 'lambert-conformal-conic') ? {
                 // lambertConformalConic
@@ -849,6 +840,7 @@ export default class Wind {
 
 
 }
+
 
 
 
