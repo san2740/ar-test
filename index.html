@@ -1268,10 +1268,10 @@
                 console.log("valueMinMax", windJsonCache.valueMinMax);
         
                 const Wind = window.WindModule.Wind;
-        
+                const loweredAltitudes = windJsonCache.altitudes.map(h => h * 0.01);
                 windVisual = new Wind(viewer, viewer.scene.context, {
                     dimension: windJsonCache.dimensions,
-                    altitudes: windJsonCache.altitudes,
+                    altitudes: loweredAltitudes,
                     uvws: {
                         u: windJsonCache.us,
                         v: windJsonCache.vs,
@@ -1286,7 +1286,7 @@
                     boundary: windJsonCache.boundaries,
                     textureSize: Math.round(
                         Math.sqrt(windJsonCache.dimensions[0] * windJsonCache.dimensions[1])
-                    ),
+                    ) * 2.5,
                     renderingType: "line",
                     point: {
                         pointSize: 5,
@@ -1298,7 +1298,9 @@
                     speedFactor: 200.0,
                     verticalScale: 1.0,
                     wens: [0.0, 360.0, 90.0, 0.0],
-                    highlights: new Array(windJsonCache.altitudes.length).fill(true)
+                    highlights: [false, false, false, false, false,false, false, false, false, false,
+                                  false, false, false, false, false, false, false, false, false, false,
+                                  false, false, false, false, false, false, false, false, false, true, true, true, true]
                 });
         
                 if (typeof windVisual.updateParameters === "function") {
@@ -1315,7 +1317,9 @@
                             uvw.w.min, uvw.w.max
                         ],
                         velocityFilter: [uvw.value.min, uvw.value.max],
-                        highlights: new Array(windJsonCache.altitudes.length).fill(true),
+                        highlights: [false, false, false, false, false,false, false, false, false, false,
+                                  false, false, false, false, false, false, false, false, false, false,
+                                  false, false, false, false, false, false, false, false, false, true, true, true, true],
                         wens: [0.0, 360.0, 90.0, 0.0]
                     });
                 }
@@ -1997,6 +2001,7 @@
     }
 </style>
 </html>
+
 
 
 
