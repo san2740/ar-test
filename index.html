@@ -411,61 +411,39 @@
         }
 
         function computePoseFromDeviceOrientation(event) {
-            const alpha = Cesium.Math.toRadians(event.alpha ?? 0);
-            const beta = Cesium.Math.toRadians(event.beta ?? 0);
-            const gamma = Cesium.Math.toRadians(event.gamma ?? 0);
-            const orient = Cesium.Math.toRadians(getScreenOrientationAngleDeg());
-
-            const rz = rotationZ(alpha);
-            const rx = rotationX(beta);
-            const ry = rotationY(gamma);
-            const rs = rotationZ(-orient);
-
-            let m = multiplyMatrix3Array(rz, rx);
-            m = multiplyMatrix3Array(m, ry);
-            m = multiplyMatrix3Array(m, rs);
-
-            const deviceForward = new Cesium.Cartesian3(0, 0, -1);
-            const deviceUp = new Cesium.Cartesian3(0, 1, 0);
-
-            let forward = multiplyMatrixVector3(m, deviceForward);
-            let up = multiplyMatrixVector3(m, deviceUp);
-
-            forward = normalizeVec(forward);
-            up = normalizeVec(up);
-
+            const alpha = event.alpha ?? 0;
+            const beta = event.beta ?? 0;
+            const gamma = event.gamma ?? 0;
+        
+            const screenAngle = normalizeDegrees(getScreenOrientationAngleDeg());
+        
             let headingDeg;
             if (typeof event.webkitCompassHeading === "number" && Number.isFinite(event.webkitCompassHeading)) {
                 headingDeg = normalizeDegrees(event.webkitCompassHeading);
             } else {
-                headingDeg = normalizeDegrees(Cesium.Math.toDegrees(Math.atan2(forward.x, forward.y)));
+                headingDeg = normalizeDegrees(360 - alpha);
             }
-
-            const pitchDeg = Cesium.Math.toDegrees(Math.asin(clamp(forward.z, -1, 1)));
-
-            const worldUp = new Cesium.Cartesian3(0, 0, 1);
-
-            let baseRight = Cesium.Cartesian3.cross(forward, worldUp, new Cesium.Cartesian3());
-            if (Cesium.Cartesian3.magnitudeSquared(baseRight) < 1e-8) {
-                baseRight = Cesium.Cartesian3.cross(forward, new Cesium.Cartesian3(0, 1, 0), baseRight);
+        
+            // 기본값: 세로(portrait) 기준
+            let pitchDeg = beta;
+            let rollDeg = gamma;
+        
+            // 화면 회전에 따라 pitch/roll 축 보정
+            if (screenAngle === 90) {
+                pitchDeg = -gamma;
+                rollDeg = beta;
+            } else if (screenAngle === 270) {
+                pitchDeg = gamma;
+                rollDeg = -beta;
+            } else if (screenAngle === 180) {
+                pitchDeg = -beta;
+                rollDeg = -gamma;
             }
-            Cesium.Cartesian3.normalize(baseRight, baseRight);
-
-            let baseUp = Cesium.Cartesian3.cross(baseRight, forward, new Cesium.Cartesian3());
-            Cesium.Cartesian3.normalize(baseUp, baseUp);
-
-            let upProjected = projectToPlane(up, forward);
-            if (Cesium.Cartesian3.magnitudeSquared(upProjected) < 1e-8) {
-                upProjected = Cesium.Cartesian3.clone(baseUp);
-            }
-            Cesium.Cartesian3.normalize(upProjected, upProjected);
-
-            const crossUp = Cesium.Cartesian3.cross(baseUp, upProjected, new Cesium.Cartesian3());
-            const sinRoll = Cesium.Cartesian3.dot(crossUp, forward);
-            const cosRoll = Cesium.Cartesian3.dot(baseUp, upProjected);
-
-            const rollDeg = Cesium.Math.toDegrees(Math.atan2(sinRoll, cosRoll));
-
+        
+            // 과도한 흔들림 방지
+            pitchDeg = clamp(pitchDeg, -89, 89);
+            rollDeg = clamp(rollDeg, -89, 89);
+        
             return { headingDeg, pitchDeg, rollDeg };
         }
 
@@ -491,7 +469,7 @@
 
             latestHeadingDeg = normalizeDegrees(rawHeadingDeg - calibratedHeading + headingOffset);
             latestPitchDeg = clamp(rawPitchDeg - calibratedPitch + pitchOffset, -89, 89);
-            latestRollDeg = clamp((rawRollDeg - calibratedRoll) * 0.35, -30, 30);
+            latestRollDeg = clamp(rawRollDeg - calibratedRoll, -45, 45);
 
             const position = Cesium.Cartesian3.fromDegrees(
                 currentLon,
