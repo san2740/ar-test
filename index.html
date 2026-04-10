@@ -53,13 +53,6 @@
                     <input id="fovRange" type="range" min="35" max="100" step="1" value="100" />
                 </div>
 
-                <div hidden class="row">
-                    <div class="hstack">
-                        <button class="btn secondary" id="calibrateBtn">현재 자세 기준 보정</button>
-                        <button class="btn secondary" id="resetCalibrateBtn">보정 초기화</button>
-                    </div>
-                </div>
-
                 <div class="small" id="coordText">현재 좌표: 아직 없음</div>
                 <div class="small" id="sensorText">센서값: 아직 없음</div>
                 <div class="small" id="tilesetText">타일셋: 아직 없음</div>
@@ -896,23 +889,6 @@
         showToast("AR 모드 종료");
     }
 
-    function captureCalibrationPose() {
-        calibratedHeading = rawHeadingDeg;
-        calibratedPitch = rawPitchDeg;
-        calibratedRoll = rawRollDeg;
-        if (arMode) applyCameraPose();
-        statusEl.textContent = "현재 자세를 기준으로 보정했습니다.";
-        showToast("현재 자세 기준 보정 완료");
-    }
-
-    function resetCalibration() {
-        calibratedHeading = 0;
-        calibratedPitch = 0;
-        calibratedRoll = 0;
-        if (arMode) applyCameraPose();
-        statusEl.textContent = "자세 보정을 초기화했습니다.";
-        showToast("보정 초기화");
-    }
 
     headingOffsetEl.addEventListener("input", () => {
         updateOffsetLabels();
@@ -942,9 +918,6 @@
         viewer.camera.frustum.fov = Cesium.Math.toRadians(Number(fovRangeEl.value));
         viewer.scene.requestRender();
     });
-
-    document.getElementById("calibrateBtn").addEventListener("click", captureCalibrationPose);
-    document.getElementById("resetCalibrateBtn").addEventListener("click", resetCalibration);
 
     document.getElementById("gpsChip").addEventListener("click", async () => {
         if (currentLon == null || currentLat == null) {
