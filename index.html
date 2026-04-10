@@ -12,6 +12,7 @@
 
 <video id="cameraVideo" autoplay playsinline muted></video>
 <div id="cesiumContainer"></div>
+<div id="rainLayer"></div>
 
 <div id="ui">
     <div class="top-bar">
@@ -68,6 +69,7 @@
         </div>
 
         <button class="ar-toggle off" id="arToggleBtn">AR 시작</button>
+        <button class="btn small" id="rainToggleBtn" style="pointer-events:auto;">비 효과</button>
 
         <div class="compass-wrap">
             <div class="compass">
@@ -146,6 +148,10 @@
     const accEl = document.getElementById("accEl");
     const headEl = document.getElementById("headEl");
     const compassNeedleEl = document.getElementById("compassNeedle");
+
+    const rainLayerEl = document.getElementById("rainLayer");
+    let rainEnabled = false;
+    let rainDrops = [];
 
     let currentLon = null;
     let currentLat = null;
@@ -256,6 +262,55 @@
         heightVal.textContent = heightOffsetEl.value;
         tilesetHeightVal.textContent = tilesetHeightOffsetEl.value;
         fovVal.textContent = fovRangeEl.value;
+    }
+
+    function createRain(count = 120) {
+        clearRain();
+
+        const frag = document.createDocumentFragment();
+
+        for (let i = 0; i < count; i++) {
+            const drop = document.createElement("div");
+            drop.className = "raindrop";
+
+            const left = Math.random() * 100;
+            const delay = Math.random() * 1.5;
+            const duration = 0.7 + Math.random() * 0.8;
+            const height = 40 + Math.random() * 70;
+            const opacity = 0.25 + Math.random() * 0.5;
+
+            drop.style.left = `${left}%`;
+            drop.style.height = `${height}px`;
+            drop.style.animationDuration = `${duration}s`;
+            drop.style.animationDelay = `${delay}s`;
+            drop.style.opacity = opacity;
+
+            frag.appendChild(drop);
+            rainDrops.push(drop);
+        }
+
+        rainLayerEl.appendChild(frag);
+        rainLayerEl.classList.add("active");
+        rainEnabled = true;
+    }
+
+    function clearRain() {
+        for (const drop of rainDrops) {
+            drop.remove();
+        }
+        rainDrops = [];
+        rainLayerEl.classList.remove("active");
+        rainEnabled = false;
+    }
+
+    function toggleRain() {
+        if (rainEnabled) {
+            clearRain();
+            showToast("비 효과 종료");
+        } else {
+            createRain(140);
+            showToast("비 효과 시작");
+        }
     }
 
     function updateGPSChip() {
@@ -889,6 +944,12 @@
         showToast("AR 모드 종료");
     }
 
+    const rainToggleBtn = document.getElementById("rainToggleBtn");
+
+    rainToggleBtn.addEventListener("click", () => {
+        toggleRain();
+    });
+
 
     headingOffsetEl.addEventListener("input", () => {
         updateOffsetLabels();
@@ -1461,7 +1522,52 @@
         }
 
         .ar-toggle {
-            min-width: 150px;
+            min-width: 120px;
+        }
+
+        #rainToggleBtn {
+            min-width: 60px;
+        }
+    }
+
+    #rainLayer {
+        position: fixed;
+        inset: 0;
+        z-index: 2; /* cesium(1) 위, ui(100) 아래 */
+        pointer-events: none;
+        overflow: hidden;
+        display: none;
+    }
+
+    #rainLayer.active {
+        display: block;
+    }
+
+    .raindrop {
+        position: absolute;
+        top: -20px;
+        width: 2px;
+        height: 80px;
+        background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(180,220,255,0.35),
+                rgba(180,220,255,0.9)
+        );
+        border-radius: 999px;
+        transform: rotate(12deg);
+        animation-name: rainFall;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+        opacity: 0.8;
+    }
+
+    @keyframes rainFall {
+        from {
+            transform: translateY(-120px) rotate(12deg);
+        }
+        to {
+            transform: translateY(120vh) rotate(12deg);
         }
     }
 </style>
