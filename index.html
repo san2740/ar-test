@@ -10,1005 +10,1061 @@
 </head>
 <body>
 
-    <video id="cameraVideo" autoplay playsinline muted></video>
-    <div id="cesiumContainer"></div>
+<video id="cameraVideo" autoplay playsinline muted></video>
+<div id="cesiumContainer"></div>
 
-    <div id="ui">
-        <div class="top-bar">
-            <div class="live-badge" id="liveBadge"><span class="dot"></span>AR</div>
-        </div>
+<div id="ui">
+    <div class="top-bar">
+        <div class="live-badge" id="liveBadge"><span class="dot"></span>AR</div>
+    </div>
 
-        <div class="left-panel" id="leftPanel">
-            <div class="panel">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                    <h3 style="margin:0;">상태 / 보정</h3>
-                    <button class="btn secondary small" id="panelToggleBtn" type="button">닫기</button>
-                </div>
-
-                <div id="leftPanelBody" style="margin-top:10px;">
-                    <div class="status" id="status">초기화 대기중...</div>
-
-                    <div class="row">
-                        <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
-                        <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
-                    </div>
-
-                    <div class="row">
-                        <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
-                        <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
-                    </div>
-
-                    <div class="row">
-                        <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
-                        <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
-                    </div>
-
-                    <div class="row">
-                        <div class="label"><span>Tileset Height (m)</span><span id="tilesetHeightVal">0</span></div>
-                        <input id="tilesetHeightOffset" type="range" min="-150" max="150" step="1" value="0" />
-                    </div>
-
-                    <div class="row">
-                        <div class="label"><span>FOV</span><span id="fovVal">60</span></div>
-                        <input id="fovRange" type="range" min="35" max="100" step="1" value="100" />
-                    </div>
-
-                    <div class="row">
-                        <div class="hstack">
-                            <button class="btn secondary" id="calibrateBtn">현재 자세 기준 보정</button>
-                            <button class="btn secondary" id="resetCalibrateBtn">보정 초기화</button>
-                        </div>
-                    </div>
-
-                    <div class="small" id="coordText">현재 좌표: 아직 없음</div>
-                    <div class="small" id="sensorText">센서값: 아직 없음</div>
-                    <div class="small" id="tilesetText">타일셋: 아직 없음</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="bottom-bar">
-            <div class="chip" id="gpsChip" style="cursor:pointer;">
-                <div class="chip-row"><span class="chip-label">위도</span><span id="latEl">—</span></div>
-                <div class="chip-row"><span class="chip-label">경도</span><span id="lonEl">—</span></div>
-                <div class="chip-row"><span class="chip-label">정확도</span><span id="accEl">—</span></div>
+    <div class="left-panel" id="leftPanel">
+        <div class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <h3 style="margin:0;">상태 / 보정</h3>
+                <button class="btn secondary small" id="panelToggleBtn" type="button">닫기</button>
             </div>
 
-            <button class="ar-toggle off" id="arToggleBtn">AR 시작</button>
+            <div id="leftPanelBody" style="margin-top:10px;">
+                <div class="status" id="status">초기화 대기중...</div>
 
-            <div class="compass-wrap">
-                <div class="compass">
-                    <span class="compass-n">N</span>
-                    <div class="needle" id="compassNeedle"></div>
+                <div hidden class="row">
+                    <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
+                    <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
                 </div>
-                <span class="deg" id="headEl">—°</span>
+
+                <div hidden class="row">
+                    <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
+                    <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
+                </div>
+
+                <div hidden class="row">
+                    <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
+                    <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
+                </div>
+
+                <div hidden class="row">
+                    <div class="label"><span>Tileset Height (m)</span><span id="tilesetHeightVal">0</span></div>
+                    <input id="tilesetHeightOffset" type="range" min="-150" max="150" step="1" value="0" />
+                </div>
+
+                <div class="row">
+                    <div class="label"><span>FOV</span><span id="fovVal">60</span></div>
+                    <input id="fovRange" type="range" min="35" max="100" step="1" value="100" />
+                </div>
+
+                <div class="row">
+                    <div class="hstack">
+                        <button class="btn secondary" id="calibrateBtn">현재 자세 기준 보정</button>
+                        <button class="btn secondary" id="resetCalibrateBtn">보정 초기화</button>
+                    </div>
+                </div>
+
+                <div class="small" id="coordText">현재 좌표: 아직 없음</div>
+                <div class="small" id="sensorText">센서값: 아직 없음</div>
+                <div class="small" id="tilesetText">타일셋: 아직 없음</div>
             </div>
         </div>
     </div>
 
-    <div class="toast" id="toast"></div>
-
-    <div id="debugTab">
-        <button onclick="toggleDebug()">DEBUG</button>
-    </div>
-
-    <div class="debug-panel" id="debugPanel">
-        <div class="debug-head">
-            <span class="debug-head-title">AR 디버그</span>
-            <button onclick="toggleDebug()">닫기</button>
+    <div class="bottom-bar">
+        <div class="chip" id="gpsChip" style="cursor:pointer;">
+            <div class="chip-row"><span class="chip-label">위도</span><span id="latEl">—</span></div>
+            <div class="chip-row"><span class="chip-label">경도</span><span id="lonEl">—</span></div>
+            <div class="chip-row"><span class="chip-label">정확도</span><span id="accEl">—</span></div>
         </div>
-        <div id="debugLog"></div>
-        <div class="debug-actions">
-            <button onclick="debugTestCamera()">카메라</button>
-            <button onclick="debugTestGPS()">GPS</button>
-            <button onclick="debugTestOrientation()">센서</button>
-            <button onclick="document.getElementById('debugLog').innerHTML=''">지우기</button>
+
+        <button class="ar-toggle off" id="arToggleBtn">AR 시작</button>
+
+        <div class="compass-wrap">
+            <div class="compass">
+                <span class="compass-n">N</span>
+                <div class="needle" id="compassNeedle"></div>
+            </div>
+            <span class="deg" id="headEl">—°</span>
         </div>
     </div>
+</div>
 
-    <script>
-        Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
+<div class="toast" id="toast"></div>
 
-        const TILESET_URL = "https://seoul.gaia3d.com:10107/tileset/tn_buld_tiles_merge1/tileset.json";
-        const eyeHeightMeters = 1.6;
+<div id="debugTab">
+    <button onclick="toggleDebug()">DEBUG</button>
+</div>
 
-        const statusEl = document.getElementById("status");
-        const coordTextEl = document.getElementById("coordText");
-        const sensorTextEl = document.getElementById("sensorText");
-        const tilesetTextEl = document.getElementById("tilesetText");
-        const videoEl = document.getElementById("cameraVideo");
-        const panelToggleBtn = document.getElementById("panelToggleBtn");
-        const leftPanelBody = document.getElementById("leftPanelBody");
-        const arToggleBtn = document.getElementById("arToggleBtn");
-        const liveBadgeEl = document.getElementById("liveBadge");
+<div class="debug-panel" id="debugPanel">
+    <div class="debug-head">
+        <span class="debug-head-title">AR 디버그</span>
+        <button onclick="toggleDebug()">닫기</button>
+    </div>
+    <div id="debugLog"></div>
+    <div class="debug-actions">
+        <button onclick="debugTestCamera()">카메라</button>
+        <button onclick="debugTestGPS()">GPS</button>
+        <button onclick="debugTestOrientation()">센서</button>
+        <button onclick="document.getElementById('debugLog').innerHTML=''">지우기</button>
+    </div>
+</div>
 
-        const headingOffsetEl = document.getElementById("headingOffset");
-        const pitchOffsetEl = document.getElementById("pitchOffset");
-        const heightOffsetEl = document.getElementById("heightOffset");
-        const tilesetHeightOffsetEl = document.getElementById("tilesetHeightOffset");
-        const fovRangeEl = document.getElementById("fovRange");
+<script>
+    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
 
-        const headingVal = document.getElementById("headingVal");
-        const pitchVal = document.getElementById("pitchVal");
-        const heightVal = document.getElementById("heightVal");
-        const tilesetHeightVal = document.getElementById("tilesetHeightVal");
-        const fovVal = document.getElementById("fovVal");
+    // 기존 건물 타일셋
+    const TILESET_URL = "https://seoul.gaia3d.com:10107/tileset/tn_buld_tiles_merge1/tileset.json";
 
-        const latEl = document.getElementById("latEl");
-        const lonEl = document.getElementById("lonEl");
-        const accEl = document.getElementById("accEl");
-        const headEl = document.getElementById("headEl");
-        const compassNeedleEl = document.getElementById("compassNeedle");
+    // 추가할 로컬 나무 타일셋들
+    const EXTRA_TILESET_URLS = [
+        "./roadsidetreetileset/epopnamu-lowpoly-v1/tileset.json",
+        "./roadsidetreetileset/ginko-lowpoly-v7/tileset.json",
+        "./roadsidetreetileset/maple-lowpoly-v1/tileset.json",
+        "./roadsidetreetileset/metasequoia-lowpoly-v1/tileset.json",
+        "./roadsidetreetileset/neutinamu-lowpoly-v1/tileset.json",
+        "./roadsidetreetileset/pinetree-lowpoly-v1/tileset.json",
+        "./roadsidetreetileset/sakura-lowpoly-v4/tileset.json",
+        "./roadsidetreetileset/verjum-lowpoly-v1/tileset.json"
+    ];
 
-        let currentLon = null;
-        let currentLat = null;
-        let currentHeight = null;
-        let currentAccuracy = null;
-        let groundHeight = 0;
+    const eyeHeightMeters = 1.6;
 
-        let gpsStarted = false;
-        let orientationStarted = false;
-        let cameraStarted = false;
-        let arMode = false;
+    const statusEl = document.getElementById("status");
+    const coordTextEl = document.getElementById("coordText");
+    const sensorTextEl = document.getElementById("sensorText");
+    const tilesetTextEl = document.getElementById("tilesetText");
+    const videoEl = document.getElementById("cameraVideo");
+    const panelToggleBtn = document.getElementById("panelToggleBtn");
+    const leftPanelBody = document.getElementById("leftPanelBody");
+    const arToggleBtn = document.getElementById("arToggleBtn");
+    const liveBadgeEl = document.getElementById("liveBadge");
 
-        let watchId = null;
-        let cameraStream = null;
-        let hasFirstGpsFix = false;
+    const headingOffsetEl = document.getElementById("headingOffset");
+    const pitchOffsetEl = document.getElementById("pitchOffset");
+    const heightOffsetEl = document.getElementById("heightOffset");
+    const tilesetHeightOffsetEl = document.getElementById("tilesetHeightOffset");
+    const fovRangeEl = document.getElementById("fovRange");
 
-        let lastAlpha = 0;
-        let lastBeta = 0;
-        let lastGamma = 0;
+    const headingVal = document.getElementById("headingVal");
+    const pitchVal = document.getElementById("pitchVal");
+    const heightVal = document.getElementById("heightVal");
+    const tilesetHeightVal = document.getElementById("tilesetHeightVal");
+    const fovVal = document.getElementById("fovVal");
 
-        let rawHeadingDeg = 0;
-        let rawPitchDeg = 0;
-        let rawRollDeg = 0;
+    const latEl = document.getElementById("latEl");
+    const lonEl = document.getElementById("lonEl");
+    const accEl = document.getElementById("accEl");
+    const headEl = document.getElementById("headEl");
+    const compassNeedleEl = document.getElementById("compassNeedle");
 
-        let latestHeadingDeg = 0;
-        let latestPitchDeg = 0;
-        let latestRollDeg = 0;
+    let currentLon = null;
+    let currentLat = null;
+    let currentHeight = null;
+    let currentAccuracy = null;
+    let groundHeight = 0;
 
-        let calibratedHeading = 0;
-        let calibratedPitch = 0;
-        let calibratedRoll = 0;
+    let gpsStarted = false;
+    let orientationStarted = false;
+    let cameraStarted = false;
+    let arMode = false;
 
-        let customTileset = null;
-        let lastTerrainSampleLon = null;
-        let lastTerrainSampleLat = null;
-        let lastTerrainSampleTime = 0;
+    let watchId = null;
+    let cameraStream = null;
+    let hasFirstGpsFix = false;
 
-        let toastTimer = null;
+    let lastAlpha = 0;
+    let lastBeta = 0;
+    let lastGamma = 0;
 
-        const viewer = new Cesium.Viewer("cesiumContainer", {
-            animation: false,
-            timeline: false,
-            baseLayerPicker: false,
-            geocoder: false,
-            homeButton: false,
-            infoBox: false,
-            sceneModePicker: false,
-            navigationHelpButton: false,
-            fullscreenButton: false,
-            selectionIndicator: false,
-            shouldAnimate: true,
-            terrain: Cesium.Terrain.fromWorldTerrain(),
-            contextOptions: {
-                webgl: {
-                    alpha: true
-                }
+    let rawHeadingDeg = 0;
+    let rawPitchDeg = 0;
+    let rawRollDeg = 0;
+
+    let latestHeadingDeg = 0;
+    let latestPitchDeg = 0;
+    let latestRollDeg = 0;
+
+    let calibratedHeading = 0;
+    let calibratedPitch = 0;
+    let calibratedRoll = 0;
+
+    // 기존 건물 타일셋
+    let mainTileset = null;
+
+    // 추가 나무 타일셋 배열
+    let extraTilesets = [];
+
+    let lastTerrainSampleLon = null;
+    let lastTerrainSampleLat = null;
+    let lastTerrainSampleTime = 0;
+
+    let toastTimer = null;
+
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+        animation: false,
+        timeline: false,
+        baseLayerPicker: false,
+        geocoder: false,
+        homeButton: false,
+        infoBox: false,
+        sceneModePicker: false,
+        navigationHelpButton: false,
+        fullscreenButton: false,
+        selectionIndicator: false,
+        shouldAnimate: true,
+        terrain: Cesium.Terrain.fromWorldTerrain(),
+        contextOptions: {
+            webgl: {
+                alpha: true
             }
-        });
+        }
+    });
 
-        viewer.scene.backgroundColor = Cesium.Color.TRANSPARENT;
-        viewer.scene.skyBox.show = false;
-        viewer.scene.skyAtmosphere.show = false;
-        viewer.scene.globe.baseColor = Cesium.Color.TRANSPARENT;
-        viewer.scene.globe.showGroundAtmosphere = false;
-        viewer.scene.globe.show = false;
+    viewer.scene.backgroundColor = Cesium.Color.TRANSPARENT;
+    viewer.scene.skyBox.show = false;
+    viewer.scene.skyAtmosphere.show = false;
+    viewer.scene.globe.baseColor = Cesium.Color.TRANSPARENT;
+    viewer.scene.globe.showGroundAtmosphere = false;
+    viewer.scene.globe.show = false;
 
-        viewer.cesiumWidget.creditContainer.style.display = "none";
-        viewer.scene.requestRenderMode = false;
+    viewer.cesiumWidget.creditContainer.style.display = "none";
+    viewer.scene.requestRenderMode = false;
 
-        viewer.camera.frustum.fov = Cesium.Math.toRadians(60);
-        viewer.camera.frustum.near = 0.1;
-        viewer.camera.frustum.far = 5000.0;
+    viewer.camera.frustum.fov = Cesium.Math.toRadians(60);
+    viewer.camera.frustum.near = 0.1;
+    viewer.camera.frustum.far = 5000.0;
 
-        const ssc = viewer.scene.screenSpaceCameraController;
-        ssc.enableRotate = false;
-        ssc.enableTranslate = false;
-        ssc.enableZoom = false;
-        ssc.enableTilt = false;
-        ssc.enableLook = false;
-        ssc.enableInputs = false;
+    const ssc = viewer.scene.screenSpaceCameraController;
+    ssc.enableRotate = false;
+    ssc.enableTranslate = false;
+    ssc.enableZoom = false;
+    ssc.enableTilt = false;
+    ssc.enableLook = false;
+    ssc.enableInputs = false;
 
-        function normalizeDegrees(deg) {
-            let d = deg % 360;
-            if (d < 0) d += 360;
-            return d;
+    function normalizeDegrees(deg) {
+        let d = deg % 360;
+        if (d < 0) d += 360;
+        return d;
+    }
+
+    function clamp(v, min, max) {
+        return Math.max(min, Math.min(max, v));
+    }
+
+    function showToast(msg, ms = 2500) {
+        const el = document.getElementById("toast");
+        el.textContent = msg;
+        el.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove("show"), ms);
+    }
+
+    function updateOffsetLabels() {
+        headingVal.textContent = headingOffsetEl.value;
+        pitchVal.textContent = pitchOffsetEl.value;
+        heightVal.textContent = heightOffsetEl.value;
+        tilesetHeightVal.textContent = tilesetHeightOffsetEl.value;
+        fovVal.textContent = fovRangeEl.value;
+    }
+
+    function updateGPSChip() {
+        latEl.textContent = currentLat == null ? "—" : currentLat.toFixed(6);
+        lonEl.textContent = currentLon == null ? "—" : currentLon.toFixed(6);
+
+        if (currentAccuracy == null) {
+            accEl.textContent = "—";
+            accEl.className = "";
+            return;
         }
 
-        function clamp(v, min, max) {
-            return Math.max(min, Math.min(max, v));
+        const acc = Math.round(currentAccuracy);
+        accEl.textContent = acc + "m";
+        accEl.className = acc < 6 ? "acc-good" : acc < 20 ? "acc-ok" : "acc-bad";
+    }
+
+    function updateCoordText() {
+        if (currentLon == null || currentLat == null) {
+            coordTextEl.textContent = "현재 좌표: 아직 없음";
+            return;
         }
 
-        function showToast(msg, ms = 2500) {
-            const el = document.getElementById("toast");
-            el.textContent = msg;
-            el.classList.add("show");
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => el.classList.remove("show"), ms);
+        coordTextEl.textContent =
+            `현재 좌표: lon=${currentLon.toFixed(6)}, lat=${currentLat.toFixed(6)}, gpsH=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)}, ground=${groundHeight.toFixed(1)}, acc=${currentAccuracy == null ? "n/a" : Math.round(currentAccuracy) + "m"}`;
+    }
+
+    function updateSensorText() {
+        sensorTextEl.textContent =
+            `센서값: alpha=${lastAlpha.toFixed(1)}, beta=${lastBeta.toFixed(1)}, gamma=${lastGamma.toFixed(1)} / heading=${latestHeadingDeg.toFixed(1)}, pitch=${latestPitchDeg.toFixed(1)}, roll=${latestRollDeg.toFixed(1)}`;
+        headEl.textContent = `${Math.round(latestHeadingDeg)}°`;
+        compassNeedleEl.style.transform = `rotate(${-latestHeadingDeg}deg)`;
+    }
+
+    function updateTilesetText() {
+        const loadedCount = (mainTileset ? 1 : 0) + extraTilesets.length;
+
+        if (!mainTileset && extraTilesets.length === 0) {
+            tilesetTextEl.textContent = "타일셋: 아직 없음";
+            return;
         }
 
-        function updateOffsetLabels() {
-            headingVal.textContent = headingOffsetEl.value;
-            pitchVal.textContent = pitchOffsetEl.value;
-            heightVal.textContent = heightOffsetEl.value;
-            tilesetHeightVal.textContent = tilesetHeightOffsetEl.value;
-            fovVal.textContent = fovRangeEl.value;
+        let text = `타일셋: 총 ${loadedCount}개 로드됨`;
+        if (mainTileset) {
+            const center = Cesium.Cartographic.fromCartesian(mainTileset.boundingSphere.center);
+            text += ` / mainLon=${Cesium.Math.toDegrees(center.longitude).toFixed(6)}, mainLat=${Cesium.Math.toDegrees(center.latitude).toFixed(6)}`;
         }
+        text += ` / offsetH=${Number(tilesetHeightOffsetEl.value).toFixed(1)}`;
 
-        function updateGPSChip() {
-            latEl.textContent = currentLat == null ? "—" : currentLat.toFixed(6);
-            lonEl.textContent = currentLon == null ? "—" : currentLon.toFixed(6);
+        tilesetTextEl.textContent = text;
+    }
 
-            if (currentAccuracy == null) {
-                accEl.textContent = "—";
-                accEl.className = "";
-                return;
-            }
-
-            const acc = Math.round(currentAccuracy);
-            accEl.textContent = acc + "m";
-            accEl.className = acc < 6 ? "acc-good" : acc < 20 ? "acc-ok" : "acc-bad";
+    function getScreenOrientationAngleDeg() {
+        if (screen.orientation && typeof screen.orientation.angle === "number") {
+            return screen.orientation.angle;
         }
-
-        function updateCoordText() {
-            if (currentLon == null || currentLat == null) {
-                coordTextEl.textContent = "현재 좌표: 아직 없음";
-                return;
-            }
-
-            coordTextEl.textContent =
-                `현재 좌표: lon=${currentLon.toFixed(6)}, lat=${currentLat.toFixed(6)}, gpsH=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)}, ground=${groundHeight.toFixed(1)}, acc=${currentAccuracy == null ? "n/a" : Math.round(currentAccuracy) + "m"}`;
+        if (typeof window.orientation === "number") {
+            return window.orientation;
         }
+        return 0;
+    }
 
-        function updateSensorText() {
-            sensorTextEl.textContent =
-                `센서값: alpha=${lastAlpha.toFixed(1)}, beta=${lastBeta.toFixed(1)}, gamma=${lastGamma.toFixed(1)} / heading=${latestHeadingDeg.toFixed(1)}, pitch=${latestPitchDeg.toFixed(1)}, roll=${latestRollDeg.toFixed(1)}`;
-            headEl.textContent = `${Math.round(latestHeadingDeg)}°`;
-            compassNeedleEl.style.transform = `rotate(${-latestHeadingDeg}deg)`;
+    function multiplyMatrix3Array(a, b) {
+        return [
+            a[0]*b[0] + a[1]*b[3] + a[2]*b[6],
+            a[0]*b[1] + a[1]*b[4] + a[2]*b[7],
+            a[0]*b[2] + a[1]*b[5] + a[2]*b[8],
+
+            a[3]*b[0] + a[4]*b[3] + a[5]*b[6],
+            a[3]*b[1] + a[4]*b[4] + a[5]*b[7],
+            a[3]*b[2] + a[4]*b[5] + a[5]*b[8],
+
+            a[6]*b[0] + a[7]*b[3] + a[8]*b[6],
+            a[6]*b[1] + a[7]*b[4] + a[8]*b[7],
+            a[6]*b[2] + a[7]*b[5] + a[8]*b[8]
+        ];
+    }
+
+    function multiplyMatrixVector3(m, v) {
+        return new Cesium.Cartesian3(
+            m[0] * v.x + m[1] * v.y + m[2] * v.z,
+            m[3] * v.x + m[4] * v.y + m[5] * v.z,
+            m[6] * v.x + m[7] * v.y + m[8] * v.z
+        );
+    }
+
+    function rotationZ(rad) {
+        const c = Math.cos(rad);
+        const s = Math.sin(rad);
+        return [
+            c, -s, 0,
+            s,  c, 0,
+            0,  0, 1
+        ];
+    }
+
+    function rotationX(rad) {
+        const c = Math.cos(rad);
+        const s = Math.sin(rad);
+        return [
+            1, 0,  0,
+            0, c, -s,
+            0, s,  c
+        ];
+    }
+
+    function rotationY(rad) {
+        const c = Math.cos(rad);
+        const s = Math.sin(rad);
+        return [
+            c, 0, s,
+            0, 1, 0,
+            -s, 0, c
+        ];
+    }
+
+    function normalizeVec(v) {
+        const out = Cesium.Cartesian3.clone(v);
+        return Cesium.Cartesian3.normalize(out, out);
+    }
+
+    function projectToPlane(v, normal) {
+        const dot = Cesium.Cartesian3.dot(v, normal);
+        const scaledNormal = Cesium.Cartesian3.multiplyByScalar(normal, dot, new Cesium.Cartesian3());
+        return Cesium.Cartesian3.subtract(v, scaledNormal, new Cesium.Cartesian3());
+    }
+
+    function rotateAroundAxis(vec, axis, angleRad) {
+        const k = normalizeVec(axis);
+        const cosA = Math.cos(angleRad);
+        const sinA = Math.sin(angleRad);
+
+        const term1 = Cesium.Cartesian3.multiplyByScalar(vec, cosA, new Cesium.Cartesian3());
+        const kCrossV = Cesium.Cartesian3.cross(k, vec, new Cesium.Cartesian3());
+        const term2 = Cesium.Cartesian3.multiplyByScalar(kCrossV, sinA, new Cesium.Cartesian3());
+        const kDotV = Cesium.Cartesian3.dot(k, vec);
+        const term3 = Cesium.Cartesian3.multiplyByScalar(k, kDotV * (1 - cosA), new Cesium.Cartesian3());
+
+        const temp = Cesium.Cartesian3.add(term1, term2, new Cesium.Cartesian3());
+        return Cesium.Cartesian3.add(temp, term3, temp);
+    }
+
+    function buildDirectionUpFromHeadingPitchRoll(headingDeg, pitchDeg, rollDeg) {
+        const headingRad = Cesium.Math.toRadians(headingDeg);
+        const pitchRad = Cesium.Math.toRadians(pitchDeg);
+        const rollRad = Cesium.Math.toRadians(rollDeg);
+
+        const dir = new Cesium.Cartesian3(
+            Math.cos(pitchRad) * Math.sin(headingRad),
+            Math.cos(pitchRad) * Math.cos(headingRad),
+            Math.sin(pitchRad)
+        );
+        Cesium.Cartesian3.normalize(dir, dir);
+
+        const worldUp = new Cesium.Cartesian3(0, 0, 1);
+
+        let right = Cesium.Cartesian3.cross(dir, worldUp, new Cesium.Cartesian3());
+        if (Cesium.Cartesian3.magnitudeSquared(right) < 1e-8) {
+            right = Cesium.Cartesian3.cross(dir, new Cesium.Cartesian3(0, 1, 0), right);
         }
+        Cesium.Cartesian3.normalize(right, right);
 
-        function updateTilesetText() {
-            if (!customTileset) {
-                tilesetTextEl.textContent = "타일셋: 아직 없음";
-                return;
-            }
+        let up = Cesium.Cartesian3.cross(right, dir, new Cesium.Cartesian3());
+        Cesium.Cartesian3.normalize(up, up);
 
-            const center = Cesium.Cartographic.fromCartesian(customTileset.boundingSphere.center);
-            tilesetTextEl.textContent =
-                `타일셋: centerLon=${Cesium.Math.toDegrees(center.longitude).toFixed(6)}, centerLat=${Cesium.Math.toDegrees(center.latitude).toFixed(6)}, centerH=${center.height.toFixed(1)}, offsetH=${Number(tilesetHeightOffsetEl.value).toFixed(1)}`;
-        }
-
-        function getScreenOrientationAngleDeg() {
-            if (screen.orientation && typeof screen.orientation.angle === "number") {
-                return screen.orientation.angle;
-            }
-            if (typeof window.orientation === "number") {
-                return window.orientation;
-            }
-            return 0;
-        }
-
-        function multiplyMatrix3Array(a, b) {
-            return [
-                a[0]*b[0] + a[1]*b[3] + a[2]*b[6],
-                a[0]*b[1] + a[1]*b[4] + a[2]*b[7],
-                a[0]*b[2] + a[1]*b[5] + a[2]*b[8],
-
-                a[3]*b[0] + a[4]*b[3] + a[5]*b[6],
-                a[3]*b[1] + a[4]*b[4] + a[5]*b[7],
-                a[3]*b[2] + a[4]*b[5] + a[5]*b[8],
-
-                a[6]*b[0] + a[7]*b[3] + a[8]*b[6],
-                a[6]*b[1] + a[7]*b[4] + a[8]*b[7],
-                a[6]*b[2] + a[7]*b[5] + a[8]*b[8]
-            ];
-        }
-
-        function multiplyMatrixVector3(m, v) {
-            return new Cesium.Cartesian3(
-                m[0] * v.x + m[1] * v.y + m[2] * v.z,
-                m[3] * v.x + m[4] * v.y + m[5] * v.z,
-                m[6] * v.x + m[7] * v.y + m[8] * v.z
-            );
-        }
-
-        function rotationZ(rad) {
-            const c = Math.cos(rad);
-            const s = Math.sin(rad);
-            return [
-                c, -s, 0,
-                s,  c, 0,
-                0,  0, 1
-            ];
-        }
-
-        function rotationX(rad) {
-            const c = Math.cos(rad);
-            const s = Math.sin(rad);
-            return [
-                1, 0,  0,
-                0, c, -s,
-                0, s,  c
-            ];
-        }
-
-        function rotationY(rad) {
-            const c = Math.cos(rad);
-            const s = Math.sin(rad);
-            return [
-                c, 0, s,
-                0, 1, 0,
-                -s, 0, c
-            ];
-        }
-
-        function normalizeVec(v) {
-            const out = Cesium.Cartesian3.clone(v);
-            return Cesium.Cartesian3.normalize(out, out);
-        }
-
-        function projectToPlane(v, normal) {
-            const dot = Cesium.Cartesian3.dot(v, normal);
-            const scaledNormal = Cesium.Cartesian3.multiplyByScalar(normal, dot, new Cesium.Cartesian3());
-            return Cesium.Cartesian3.subtract(v, scaledNormal, new Cesium.Cartesian3());
-        }
-
-        function rotateAroundAxis(vec, axis, angleRad) {
-            const k = normalizeVec(axis);
-            const cosA = Math.cos(angleRad);
-            const sinA = Math.sin(angleRad);
-
-            const term1 = Cesium.Cartesian3.multiplyByScalar(vec, cosA, new Cesium.Cartesian3());
-            const kCrossV = Cesium.Cartesian3.cross(k, vec, new Cesium.Cartesian3());
-            const term2 = Cesium.Cartesian3.multiplyByScalar(kCrossV, sinA, new Cesium.Cartesian3());
-            const kDotV = Cesium.Cartesian3.dot(k, vec);
-            const term3 = Cesium.Cartesian3.multiplyByScalar(k, kDotV * (1 - cosA), new Cesium.Cartesian3());
-
-            const temp = Cesium.Cartesian3.add(term1, term2, new Cesium.Cartesian3());
-            return Cesium.Cartesian3.add(temp, term3, temp);
-        }
-
-        function buildDirectionUpFromHeadingPitchRoll(headingDeg, pitchDeg, rollDeg) {
-            const headingRad = Cesium.Math.toRadians(headingDeg);
-            const pitchRad = Cesium.Math.toRadians(pitchDeg);
-            const rollRad = Cesium.Math.toRadians(rollDeg);
-
-            const dir = new Cesium.Cartesian3(
-                Math.cos(pitchRad) * Math.sin(headingRad),
-                Math.cos(pitchRad) * Math.cos(headingRad),
-                Math.sin(pitchRad)
-            );
-            Cesium.Cartesian3.normalize(dir, dir);
-
-            const worldUp = new Cesium.Cartesian3(0, 0, 1);
-
-            let right = Cesium.Cartesian3.cross(dir, worldUp, new Cesium.Cartesian3());
-            if (Cesium.Cartesian3.magnitudeSquared(right) < 1e-8) {
-                right = Cesium.Cartesian3.cross(dir, new Cesium.Cartesian3(0, 1, 0), right);
-            }
-            Cesium.Cartesian3.normalize(right, right);
-
-            let up = Cesium.Cartesian3.cross(right, dir, new Cesium.Cartesian3());
+        if (Math.abs(rollDeg) > 0.0001) {
+            up = rotateAroundAxis(up, dir, rollRad);
             Cesium.Cartesian3.normalize(up, up);
-
-            if (Math.abs(rollDeg) > 0.0001) {
-                up = rotateAroundAxis(up, dir, rollRad);
-                Cesium.Cartesian3.normalize(up, up);
-            }
-
-            return { direction: dir, up };
         }
 
-        function computePoseFromDeviceOrientation(event) {
-            const alpha = Cesium.Math.toRadians(event.alpha ?? 0);
-            const beta = Cesium.Math.toRadians(event.beta ?? 0);
-            const gamma = Cesium.Math.toRadians(event.gamma ?? 0);
-            const orient = Cesium.Math.toRadians(getScreenOrientationAngleDeg());
-        
-            const rz = rotationZ(alpha);
-            const rx = rotationX(beta);
-            const ry = rotationY(gamma);
-            const rs = rotationZ(-orient);
-        
-            let m = multiplyMatrix3Array(rz, rx);
-            m = multiplyMatrix3Array(m, ry);
-            m = multiplyMatrix3Array(m, rs);
-        
-            const deviceForward = new Cesium.Cartesian3(0, 0, -1);
-            const deviceUp = new Cesium.Cartesian3(0, 1, 0);
-        
-            let forward = multiplyMatrixVector3(m, deviceForward);
-            let up = multiplyMatrixVector3(m, deviceUp);
-        
-            forward = normalizeVec(forward);
-            up = normalizeVec(up);
-        
-            let headingDeg;
-            if (typeof event.webkitCompassHeading === "number" && Number.isFinite(event.webkitCompassHeading)) {
-                headingDeg = normalizeDegrees(event.webkitCompassHeading);
-            } else {
-                headingDeg = normalizeDegrees(Cesium.Math.toDegrees(Math.atan2(forward.x, forward.y)));
-            }
-        
-            const pitchDeg = Cesium.Math.toDegrees(Math.asin(clamp(forward.z, -1, 1)));
-        
-            const worldUp = new Cesium.Cartesian3(0, 0, 1);
-        
-            let baseRight = Cesium.Cartesian3.cross(forward, worldUp, new Cesium.Cartesian3());
-            if (Cesium.Cartesian3.magnitudeSquared(baseRight) < 1e-8) {
-                baseRight = Cesium.Cartesian3.cross(forward, new Cesium.Cartesian3(0, 1, 0), baseRight);
-            }
-            Cesium.Cartesian3.normalize(baseRight, baseRight);
-        
-            let baseUp = Cesium.Cartesian3.cross(baseRight, forward, new Cesium.Cartesian3());
-            Cesium.Cartesian3.normalize(baseUp, baseUp);
-        
-            let upProjected = projectToPlane(up, forward);
-            if (Cesium.Cartesian3.magnitudeSquared(upProjected) < 1e-8) {
-                upProjected = Cesium.Cartesian3.clone(baseUp);
-            }
-            Cesium.Cartesian3.normalize(upProjected, upProjected);
-        
-            const crossUp = Cesium.Cartesian3.cross(baseUp, upProjected, new Cesium.Cartesian3());
-            const sinRoll = Cesium.Cartesian3.dot(crossUp, forward);
-            const cosRoll = Cesium.Cartesian3.dot(baseUp, upProjected);
-        
-            const rollDeg = Cesium.Math.toDegrees(Math.atan2(sinRoll, cosRoll));
-        
-            return { headingDeg, pitchDeg, rollDeg };
+        return { direction: dir, up };
+    }
+
+    function computePoseFromDeviceOrientation(event) {
+        const alpha = Cesium.Math.toRadians(event.alpha ?? 0);
+        const beta = Cesium.Math.toRadians(event.beta ?? 0);
+        const gamma = Cesium.Math.toRadians(event.gamma ?? 0);
+        const orient = Cesium.Math.toRadians(getScreenOrientationAngleDeg());
+
+        const rz = rotationZ(alpha);
+        const rx = rotationX(beta);
+        const ry = rotationY(gamma);
+        const rs = rotationZ(-orient);
+
+        let m = multiplyMatrix3Array(rz, rx);
+        m = multiplyMatrix3Array(m, ry);
+        m = multiplyMatrix3Array(m, rs);
+
+        const deviceForward = new Cesium.Cartesian3(0, 0, -1);
+        const deviceUp = new Cesium.Cartesian3(0, 1, 0);
+
+        let forward = multiplyMatrixVector3(m, deviceForward);
+        let up = multiplyMatrixVector3(m, deviceUp);
+
+        forward = normalizeVec(forward);
+        up = normalizeVec(up);
+
+        let headingDeg;
+        if (typeof event.webkitCompassHeading === "number" && Number.isFinite(event.webkitCompassHeading)) {
+            headingDeg = normalizeDegrees(event.webkitCompassHeading);
+        } else {
+            headingDeg = normalizeDegrees(Cesium.Math.toDegrees(Math.atan2(forward.x, forward.y)));
         }
 
-        function getCameraAltitude() {
-            const manualOffset = Number(heightOffsetEl.value) || 0;
-            const gpsAltitudeValid = Number.isFinite(currentHeight) && currentHeight > -100 && currentHeight < 10000;
-            const terrainValid = Number.isFinite(groundHeight);
+        const pitchDeg = Cesium.Math.toDegrees(Math.asin(clamp(forward.z, -1, 1)));
 
-            if (gpsAltitudeValid) {
-                return currentHeight + eyeHeightMeters + manualOffset;
-            }
-            if (terrainValid) {
-                return groundHeight + eyeHeightMeters + manualOffset;
-            }
-            return eyeHeightMeters + manualOffset;
+        const worldUp = new Cesium.Cartesian3(0, 0, 1);
+
+        let baseRight = Cesium.Cartesian3.cross(forward, worldUp, new Cesium.Cartesian3());
+        if (Cesium.Cartesian3.magnitudeSquared(baseRight) < 1e-8) {
+            baseRight = Cesium.Cartesian3.cross(forward, new Cesium.Cartesian3(0, 1, 0), baseRight);
         }
+        Cesium.Cartesian3.normalize(baseRight, baseRight);
 
-        function applyCameraPose() {
-            if (currentLon == null || currentLat == null) return;
+        let baseUp = Cesium.Cartesian3.cross(baseRight, forward, new Cesium.Cartesian3());
+        Cesium.Cartesian3.normalize(baseUp, baseUp);
 
-            const headingOffset = Number(headingOffsetEl.value) || 0;
-            const pitchOffset = Number(pitchOffsetEl.value) || 0;
-
-            latestHeadingDeg = normalizeDegrees(rawHeadingDeg - calibratedHeading + headingOffset);
-
-            const pitchBase = rawPitchDeg - calibratedPitch;
-            const rollBase = rawRollDeg - calibratedRoll;
-            
-            // 좌우 기울기(roll)가 클수록 pitch 반영을 줄여서
-            // 옆으로 기울였을 때 타일셋이 위로 뜨는 현상 완화
-            const rollInfluence = Math.min(Math.abs(rollBase) / 45, 1); // 0~1
-            const pitchWeight = 1 - rollInfluence * 0.85;
-            
-            latestPitchDeg = clamp(pitchBase * pitchWeight + pitchOffset, -89, 89);
-            latestRollDeg = clamp(rollBase * 1.2, -70, 70);
-
-            const position = Cesium.Cartesian3.fromDegrees(
-                currentLon,
-                currentLat,
-                getCameraAltitude()
-            );
-
-            const localPose = buildDirectionUpFromHeadingPitchRoll(
-                latestHeadingDeg,
-                latestPitchDeg,
-                latestRollDeg
-            );
-
-            const enuFrame = Cesium.Transforms.eastNorthUpToFixedFrame(position);
-
-            const worldDirection = Cesium.Matrix4.multiplyByPointAsVector(
-                enuFrame,
-                localPose.direction,
-                new Cesium.Cartesian3()
-            );
-            Cesium.Cartesian3.normalize(worldDirection, worldDirection);
-
-            const worldUp = Cesium.Matrix4.multiplyByPointAsVector(
-                enuFrame,
-                localPose.up,
-                new Cesium.Cartesian3()
-            );
-            Cesium.Cartesian3.normalize(worldUp, worldUp);
-
-            viewer.camera.setView({
-                destination: position,
-                orientation: {
-                    direction: worldDirection,
-                    up: worldUp
-                }
-            });
-
-            updateSensorText();
+        let upProjected = projectToPlane(up, forward);
+        if (Cesium.Cartesian3.magnitudeSquared(upProjected) < 1e-8) {
+            upProjected = Cesium.Cartesian3.clone(baseUp);
         }
+        Cesium.Cartesian3.normalize(upProjected, upProjected);
 
-        function moveCameraToCurrentPositionOnly() {
-            if (currentLon == null || currentLat == null) return;
+        const crossUp = Cesium.Cartesian3.cross(baseUp, upProjected, new Cesium.Cartesian3());
+        const sinRoll = Cesium.Cartesian3.dot(crossUp, forward);
+        const cosRoll = Cesium.Cartesian3.dot(baseUp, upProjected);
 
-            const destination = Cesium.Cartesian3.fromDegrees(
-                currentLon,
-                currentLat,
-                getCameraAltitude()
-            );
+        const rollDeg = Cesium.Math.toDegrees(Math.atan2(sinRoll, cosRoll));
 
-            viewer.camera.setView({
-                destination,
-                orientation: {
-                    heading: 0,
-                    pitch: 0,
-                    roll: 0
-                }
-            });
+        return { headingDeg, pitchDeg, rollDeg };
+    }
+
+    function getCameraAltitude() {
+        const manualOffset = Number(heightOffsetEl.value) || 0;
+        const gpsAltitudeValid = Number.isFinite(currentHeight) && currentHeight > -100 && currentHeight < 10000;
+        const terrainValid = Number.isFinite(groundHeight);
+
+        if (gpsAltitudeValid) {
+            return currentHeight + eyeHeightMeters + manualOffset;
         }
-
-        function distanceMeters(lon1, lat1, lon2, lat2) {
-            const c1 = Cesium.Cartographic.fromDegrees(lon1, lat1);
-            const c2 = Cesium.Cartographic.fromDegrees(lon2, lat2);
-            const g = new Cesium.EllipsoidGeodesic(c1, c2);
-            return g.surfaceDistance;
+        if (terrainValid) {
+            return groundHeight + eyeHeightMeters + manualOffset;
         }
+        return eyeHeightMeters + manualOffset;
+    }
 
-        async function updateGroundHeight(force = false) {
-            if (currentLon == null || currentLat == null) return;
+    function applyCameraPose() {
+        if (currentLon == null || currentLat == null) return;
 
-            const now = Date.now();
-            if (!force && lastTerrainSampleLon != null && lastTerrainSampleLat != null) {
-                const moved = distanceMeters(lastTerrainSampleLon, lastTerrainSampleLat, currentLon, currentLat);
-                const elapsed = now - lastTerrainSampleTime;
-                if (moved < 5 && elapsed < 3000) return;
-            }
+        const headingOffset = Number(headingOffsetEl.value) || 0;
+        const pitchOffset = Number(pitchOffsetEl.value) || 0;
 
-            try {
-                const cartographic = Cesium.Cartographic.fromDegrees(currentLon, currentLat);
-                const updated = await Cesium.sampleTerrainMostDetailed(
-                    viewer.terrainProvider,
-                    [cartographic]
-                );
+        latestHeadingDeg = normalizeDegrees(rawHeadingDeg - calibratedHeading + headingOffset);
 
-                if (updated && updated.length > 0 && Number.isFinite(updated[0].height)) {
-                    groundHeight = updated[0].height;
-                    lastTerrainSampleLon = currentLon;
-                    lastTerrainSampleLat = currentLat;
-                    lastTerrainSampleTime = now;
-                }
-            } catch (e) {
-                console.warn("지면 높이 조회 실패:", e);
-            }
-        }
+        const pitchBase = rawPitchDeg - calibratedPitch;
+        const rollBase = rawRollDeg - calibratedRoll;
 
-        async function loadCustomTileset() {
-            try {
-                if (customTileset) return;
+        const rollInfluence = Math.min(Math.abs(rollBase) / 45, 1);
+        const pitchWeight = 1 - rollInfluence * 0.85;
 
-                statusEl.textContent = "타일셋 로드중...";
-                customTileset = await Cesium.Cesium3DTileset.fromUrl(
-                    TILESET_URL,
-                    {
-                        maximumScreenSpaceError: 24,
-                        skipLevelOfDetail: true,
-                        preferLeaves: true,
-                        dynamicScreenSpaceError: true,
-                        preloadWhenHidden: false,
-                        cullWithChildrenBounds: true
-                    }
-                );
+        latestPitchDeg = clamp(pitchBase * pitchWeight + pitchOffset, -89, 89);
+        latestRollDeg = clamp(rollBase * 1.2, -70, 70);
 
-                viewer.scene.primitives.add(customTileset);
-                applyTilesetHeightOffset();
-                updateTilesetText();
-                statusEl.textContent = "타일셋 로드 완료";
-            } catch (e) {
-                console.error(e);
-                statusEl.textContent = `타일셋 로드 실패: ${e.message}`;
-            }
-        }
+        const position = Cesium.Cartesian3.fromDegrees(
+            currentLon,
+            currentLat,
+            getCameraAltitude()
+        );
 
-        function applyTilesetHeightOffset() {
-            if (!customTileset || !customTileset.boundingSphere) return;
+        const localPose = buildDirectionUpFromHeadingPitchRoll(
+            latestHeadingDeg,
+            latestPitchDeg,
+            latestRollDeg
+        );
 
-            const cartographic = Cesium.Cartographic.fromCartesian(customTileset.boundingSphere.center);
-            const surface = Cesium.Cartesian3.fromRadians(
-                cartographic.longitude,
-                cartographic.latitude,
-                cartographic.height
-            );
-            const offset = Cesium.Cartesian3.fromRadians(
-                cartographic.longitude,
-                cartographic.latitude,
-                cartographic.height + Number(tilesetHeightOffsetEl.value || 0)
-            );
+        const enuFrame = Cesium.Transforms.eastNorthUpToFixedFrame(position);
 
-            const translation = Cesium.Cartesian3.subtract(offset, surface, new Cesium.Cartesian3());
-            customTileset.modelMatrix = Cesium.Matrix4.fromTranslation(translation);
-            updateTilesetText();
-        }
+        const worldDirection = Cesium.Matrix4.multiplyByPointAsVector(
+            enuFrame,
+            localPose.direction,
+            new Cesium.Cartesian3()
+        );
+        Cesium.Cartesian3.normalize(worldDirection, worldDirection);
 
-        async function startCamera() {
-            if (cameraStarted) return;
+        const worldUp = Cesium.Matrix4.multiplyByPointAsVector(
+            enuFrame,
+            localPose.up,
+            new Cesium.Cartesian3()
+        );
+        Cesium.Cartesian3.normalize(worldUp, worldUp);
 
-            cameraStream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: { ideal: "environment" },
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                },
-                audio: false
-            });
-
-            videoEl.srcObject = cameraStream;
-            await videoEl.play();
-            videoEl.style.display = "block";
-            cameraStarted = true;
-        }
-
-        function stopCamera() {
-            if (cameraStream) {
-                cameraStream.getTracks().forEach(t => t.stop());
-                cameraStream = null;
-            }
-            videoEl.srcObject = null;
-            videoEl.style.display = "none";
-            cameraStarted = false;
-        }
-
-        function waitForFirstGpsFix(timeoutMs = 15000) {
-            return new Promise((resolve, reject) => {
-                const startTime = Date.now();
-
-                const timer = setInterval(() => {
-                    if (hasFirstGpsFix && currentLon != null && currentLat != null) {
-                        clearInterval(timer);
-                        resolve();
-                        return;
-                    }
-
-                    if (Date.now() - startTime > timeoutMs) {
-                        clearInterval(timer);
-                        reject(new Error("현재 위치를 가져오지 못했습니다. 실외에서 위치 권한을 확인해보세요."));
-                    }
-                }, 300);
-            });
-        }
-
-        function startGeolocation() {
-            if (gpsStarted) return;
-            if (!navigator.geolocation) {
-                throw new Error("이 브라우저는 geolocation을 지원하지 않습니다.");
-            }
-
-            watchId = navigator.geolocation.watchPosition(
-                async (pos) => {
-                    currentLon = pos.coords.longitude;
-                    currentLat = pos.coords.latitude;
-                    currentHeight = Number.isFinite(pos.coords.altitude) ? pos.coords.altitude : null;
-                    currentAccuracy = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null;
-                    hasFirstGpsFix = true;
-
-                    await updateGroundHeight(false);
-                    updateCoordText();
-                    updateGPSChip();
-
-                    if (!orientationStarted) {
-                        moveCameraToCurrentPositionOnly();
-                    } else if (arMode) {
-                        applyCameraPose();
-                    }
-
-                    statusEl.textContent =
-                        `GPS 수신중: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}, h=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)}`;
-                },
-                (err) => {
-                    console.error(err);
-                    statusEl.textContent = `GPS 실패: ${err.message}`;
-                    showToast("GPS 오류: " + err.message);
-                },
-                {
-                    enableHighAccuracy: true,
-                    maximumAge: 1000,
-                    timeout: 10000
-                }
-            );
-
-            gpsStarted = true;
-        }
-
-        function stopGeolocation() {
-            if (watchId != null) {
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-            }
-            gpsStarted = false;
-        }
-
-        function handleDeviceOrientation(event) {
-            lastAlpha = event.alpha ?? 0;
-            lastBeta = event.beta ?? 0;
-            lastGamma = event.gamma ?? 0;
-
-            const pose = computePoseFromDeviceOrientation(event);
-            rawHeadingDeg = pose.headingDeg;
-            rawPitchDeg = pose.pitchDeg;
-            rawRollDeg = pose.rollDeg;
-
-            if (currentLon == null || currentLat == null) {
-                latestHeadingDeg = rawHeadingDeg;
-                latestPitchDeg = rawPitchDeg;
-                latestRollDeg = rawRollDeg;
-                updateSensorText();
-                return;
-            }
-
-            if (arMode) {
-                applyCameraPose();
-            } else {
-                latestHeadingDeg = rawHeadingDeg;
-                latestPitchDeg = rawPitchDeg;
-                latestRollDeg = rawRollDeg;
-                updateSensorText();
-            }
-        }
-
-        async function requestiOSMotionPermissionIfNeeded() {
-            if (
-                typeof DeviceOrientationEvent !== "undefined" &&
-                typeof DeviceOrientationEvent.requestPermission === "function"
-            ) {
-                const result = await DeviceOrientationEvent.requestPermission();
-                if (result !== "granted") {
-                    throw new Error("iOS 센서 권한이 거부되었습니다.");
-                }
-            }
-        }
-
-        function startOrientationTracking() {
-            if (orientationStarted) return;
-            window.addEventListener("deviceorientation", handleDeviceOrientation, true);
-            orientationStarted = true;
-        }
-
-        function stopOrientationTracking() {
-            if (!orientationStarted) return;
-            window.removeEventListener("deviceorientation", handleDeviceOrientation, true);
-            orientationStarted = false;
-        }
-
-        async function startAR() {
-            try {
-                statusEl.textContent = "권한 요청중...";
-
-                await requestiOSMotionPermissionIfNeeded();
-                startOrientationTracking();
-
-                statusEl.textContent = "현재 위치 가져오는 중...";
-                startGeolocation();
-                await waitForFirstGpsFix();
-
-                await updateGroundHeight(true);
-                await loadCustomTileset();
-
-                updateCoordText();
-                updateGPSChip();
-                applyCameraPose();
-
-                await startCamera();
-
-                arMode = true;
-                arToggleBtn.className = "ar-toggle on";
-                arToggleBtn.textContent = "AR 종료";
-                liveBadgeEl.classList.add("show");
-
-                statusEl.textContent = "AR 시작됨";
-                showToast("AR 모드 활성화");
-            } catch (e) {
-                console.error(e);
-                statusEl.textContent = `초기화 실패: ${e.message}`;
-                showToast("초기화 실패: " + e.message, 3200);
-            }
-        }
-
-        function stopAR() {
-            arMode = false;
-            stopOrientationTracking();
-            stopCamera();
-
-            arToggleBtn.className = "ar-toggle off";
-            arToggleBtn.textContent = "AR 시작";
-            liveBadgeEl.classList.remove("show");
-
-            if (currentLon != null && currentLat != null) {
-                moveCameraToCurrentPositionOnly();
-            }
-
-            statusEl.textContent = "AR 종료됨";
-            showToast("AR 모드 종료");
-        }
-
-        function captureCalibrationPose() {
-            calibratedHeading = rawHeadingDeg;
-            calibratedPitch = rawPitchDeg;
-            calibratedRoll = rawRollDeg;
-            if (arMode) applyCameraPose();
-            statusEl.textContent = "현재 자세를 기준으로 보정했습니다.";
-            showToast("현재 자세 기준 보정 완료");
-        }
-
-        function resetCalibration() {
-            calibratedHeading = 0;
-            calibratedPitch = 0;
-            calibratedRoll = 0;
-            if (arMode) applyCameraPose();
-            statusEl.textContent = "자세 보정을 초기화했습니다.";
-            showToast("보정 초기화");
-        }
-
-        headingOffsetEl.addEventListener("input", () => {
-            updateOffsetLabels();
-            if (arMode) applyCameraPose();
-        });
-
-        pitchOffsetEl.addEventListener("input", () => {
-            updateOffsetLabels();
-            if (arMode) applyCameraPose();
-        });
-
-        heightOffsetEl.addEventListener("input", () => {
-            updateOffsetLabels();
-            if (currentLon != null && currentLat != null) {
-                if (arMode) applyCameraPose();
-                else moveCameraToCurrentPositionOnly();
+        viewer.camera.setView({
+            destination: position,
+            orientation: {
+                direction: worldDirection,
+                up: worldUp
             }
         });
 
-        tilesetHeightOffsetEl.addEventListener("input", () => {
-            updateOffsetLabels();
+        updateSensorText();
+    }
+
+    function moveCameraToCurrentPositionOnly() {
+        if (currentLon == null || currentLat == null) return;
+
+        const destination = Cesium.Cartesian3.fromDegrees(
+            currentLon,
+            currentLat,
+            getCameraAltitude()
+        );
+
+        viewer.camera.setView({
+            destination,
+            orientation: {
+                heading: 0,
+                pitch: 0,
+                roll: 0
+            }
+        });
+    }
+
+    function distanceMeters(lon1, lat1, lon2, lat2) {
+        const c1 = Cesium.Cartographic.fromDegrees(lon1, lat1);
+        const c2 = Cesium.Cartographic.fromDegrees(lon2, lat2);
+        const g = new Cesium.EllipsoidGeodesic(c1, c2);
+        return g.surfaceDistance;
+    }
+
+    async function updateGroundHeight(force = false) {
+        if (currentLon == null || currentLat == null) return;
+
+        const now = Date.now();
+        if (!force && lastTerrainSampleLon != null && lastTerrainSampleLat != null) {
+            const moved = distanceMeters(lastTerrainSampleLon, lastTerrainSampleLat, currentLon, currentLat);
+            const elapsed = now - lastTerrainSampleTime;
+            if (moved < 5 && elapsed < 3000) return;
+        }
+
+        try {
+            const cartographic = Cesium.Cartographic.fromDegrees(currentLon, currentLat);
+            const updated = await Cesium.sampleTerrainMostDetailed(
+                viewer.terrainProvider,
+                [cartographic]
+            );
+
+            if (updated && updated.length > 0 && Number.isFinite(updated[0].height)) {
+                groundHeight = updated[0].height;
+                lastTerrainSampleLon = currentLon;
+                lastTerrainSampleLat = currentLat;
+                lastTerrainSampleTime = now;
+            }
+        } catch (e) {
+            console.warn("지면 높이 조회 실패:", e);
+        }
+    }
+
+    async function loadSingleTileset(url, label) {
+        const tileset = await Cesium.Cesium3DTileset.fromUrl(url, {
+            maximumScreenSpaceError: 24,
+            skipLevelOfDetail: true,
+            preferLeaves: true,
+            dynamicScreenSpaceError: true,
+            preloadWhenHidden: false,
+            cullWithChildrenBounds: true
+        });
+
+        viewer.scene.primitives.add(tileset);
+        console.log("타일셋 로드 완료:", label, url);
+        return tileset;
+    }
+
+    async function loadAllTilesets() {
+        try {
+            const alreadyLoaded = mainTileset || extraTilesets.length > 0;
+            if (alreadyLoaded) return;
+
+            statusEl.textContent = "타일셋 로드중...";
+
+            // 1) 기존 메인 타일셋
+            mainTileset = await loadSingleTileset(TILESET_URL, "main");
+
+            // 2) 추가 나무 타일셋들
+            for (let i = 0; i < EXTRA_TILESET_URLS.length; i++) {
+                const url = EXTRA_TILESET_URLS[i];
+                const tileset = await loadSingleTileset(url, `extra-${i + 1}`);
+                extraTilesets.push(tileset);
+            }
+
             applyTilesetHeightOffset();
-        });
+            updateTilesetText();
+            statusEl.textContent = `타일셋 로드 완료 (총 ${1 + extraTilesets.length}개)`;
+        } catch (e) {
+            console.error(e);
+            statusEl.textContent = `타일셋 로드 실패: ${e.message}`;
+            showToast("타일셋 로드 실패: " + e.message, 3500);
+        }
+    }
 
-        fovRangeEl.addEventListener("input", () => {
-            updateOffsetLabels();
-            viewer.camera.frustum.fov = Cesium.Math.toRadians(Number(fovRangeEl.value));
-            viewer.scene.requestRender();
-        });
+    function applyHeightOffsetToTileset(tileset, offsetMeters) {
+        if (!tileset || !tileset.boundingSphere) return;
 
-        document.getElementById("calibrateBtn").addEventListener("click", captureCalibrationPose);
-        document.getElementById("resetCalibrateBtn").addEventListener("click", resetCalibration);
+        const cartographic = Cesium.Cartographic.fromCartesian(tileset.boundingSphere.center);
 
-        document.getElementById("gpsChip").addEventListener("click", async () => {
-            if (currentLon == null || currentLat == null) {
-                showToast("현재 위치가 아직 없습니다.");
-                return;
-            }
-            await updateGroundHeight(true);
-            if (arMode) applyCameraPose();
-            else moveCameraToCurrentPositionOnly();
-            showToast("현재 위치로 이동");
-        });
+        const surface = Cesium.Cartesian3.fromRadians(
+            cartographic.longitude,
+            cartographic.latitude,
+            cartographic.height
+        );
 
-        let leftPanelOpen = true;
+        const offset = Cesium.Cartesian3.fromRadians(
+            cartographic.longitude,
+            cartographic.latitude,
+            cartographic.height + offsetMeters
+        );
 
-        panelToggleBtn.addEventListener("click", () => {
-            leftPanelOpen = !leftPanelOpen;
-            leftPanelBody.style.display = leftPanelOpen ? "block" : "none";
-            panelToggleBtn.textContent = leftPanelOpen ? "닫기" : "열기";
-        });
+        const translation = Cesium.Cartesian3.subtract(offset, surface, new Cesium.Cartesian3());
+        tileset.modelMatrix = Cesium.Matrix4.fromTranslation(translation);
+    }
 
-        arToggleBtn.addEventListener("click", () => {
-            if (arMode) stopAR();
-            else startAR();
-        });
+    function applyTilesetHeightOffset() {
+        const offsetMeters = Number(tilesetHeightOffsetEl.value || 0);
 
-        function dlog(msg, color = "#4ade80") {
-            const debugLogEl = document.getElementById("debugLog");
-            const t = new Date().toLocaleTimeString("ko-KR", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit"
-            });
-            debugLogEl.innerHTML += `<div style="color:${color}"><span style="color:#666">[${t}]</span> ${msg}</div>`;
-            debugLogEl.scrollTop = debugLogEl.scrollHeight;
+        if (mainTileset) {
+            applyHeightOffsetToTileset(mainTileset, offsetMeters);
         }
 
-        window.toggleDebug = function() {
-            const p = document.getElementById("debugPanel");
-            const open = p.style.display !== "none";
-            p.style.display = open ? "none" : "block";
-            if (!open) {
-                const ua = navigator.userAgent;
-                dlog("━━━ 환경 체크 ━━━", "#fbbf24");
-                dlog("프로토콜: " + location.protocol + (location.protocol === "https:" ? " ✓" : " ✗"), "#93c5fd");
-                dlog("기기: " + (/iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : "Desktop"), "#93c5fd");
-                dlog("mediaDevices: " + (navigator.mediaDevices ? "✓" : "✗"));
-                dlog("Geolocation: " + (navigator.geolocation ? "✓" : "✗"));
-                dlog("AR mode: " + arMode);
-                dlog("GPS started: " + gpsStarted);
-                dlog("Orientation started: " + orientationStarted);
-                dlog("Camera started: " + cameraStarted);
-                if (currentLon != null && currentLat != null) {
-                    dlog(`Current pos: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)} h=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)} ground=${groundHeight.toFixed(1)}`);
-                }
-            }
-        };
+        for (const tileset of extraTilesets) {
+            applyHeightOffsetToTileset(tileset, offsetMeters);
+        }
 
-        window.debugTestCamera = async function() {
-            dlog("카메라 테스트...", "#93c5fd");
-            try {
-                const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                const t = s.getVideoTracks()[0];
-                dlog("✓ 성공! " + JSON.stringify(t.getSettings()), "#4ade80");
-                s.getTracks().forEach(track => track.stop());
-            } catch (e) {
-                dlog("✗ " + e.name + ": " + e.message, "#f87171");
-            }
-        };
+        updateTilesetText();
+    }
 
-        window.debugTestGPS = function() {
-            dlog("GPS 테스트...", "#4ade80");
-            navigator.geolocation.getCurrentPosition(
-                p => dlog(`✓ ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)} (±${Math.round(p.coords.accuracy)}m)`, "#4ade80"),
-                e => dlog("✗ " + e.message, "#f87171"),
-                { enableHighAccuracy: true, timeout: 8000 }
-            );
-        };
+    async function startCamera() {
+        if (cameraStarted) return;
 
-        window.debugTestOrientation = async function() {
-            dlog("센서 테스트...", "#fbbf24");
-            if (typeof DeviceOrientationEvent?.requestPermission === "function") {
-                try {
-                    const r = await DeviceOrientationEvent.requestPermission();
-                    dlog("iOS 권한: " + r, r === "granted" ? "#4ade80" : "#f87171");
-                    if (r !== "granted") return;
-                } catch (e) {
-                    dlog("권한 오류: " + e.message, "#f87171");
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: false
+        });
+
+        videoEl.srcObject = cameraStream;
+        await videoEl.play();
+        videoEl.style.display = "block";
+        cameraStarted = true;
+    }
+
+    function stopCamera() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(t => t.stop());
+            cameraStream = null;
+        }
+        videoEl.srcObject = null;
+        videoEl.style.display = "none";
+        cameraStarted = false;
+    }
+
+    function waitForFirstGpsFix(timeoutMs = 15000) {
+        return new Promise((resolve, reject) => {
+            const startTime = Date.now();
+
+            const timer = setInterval(() => {
+                if (hasFirstGpsFix && currentLon != null && currentLat != null) {
+                    clearInterval(timer);
+                    resolve();
                     return;
                 }
-            }
 
-            let cnt = 0;
-            const h = (e) => {
-                cnt++;
-                if (cnt === 1 || cnt % 20 === 0) {
-                    const heading = e.webkitCompassHeading ?? ((360 - (e.alpha || 0)) % 360);
-                    dlog(`#${cnt} heading=${heading.toFixed(1)} beta=${(e.beta || 0).toFixed(1)} gamma=${(e.gamma || 0).toFixed(1)}`);
+                if (Date.now() - startTime > timeoutMs) {
+                    clearInterval(timer);
+                    reject(new Error("현재 위치를 가져오지 못했습니다. 실외에서 위치 권한을 확인해보세요."));
                 }
-            };
-            window.addEventListener("deviceorientation", h, true);
-            setTimeout(() => {
-                window.removeEventListener("deviceorientation", h, true);
-                dlog("총 " + cnt + "개 " + (cnt > 0 ? "✓" : "✗"), cnt > 0 ? "#4ade80" : "#f87171");
-            }, 5000);
-        };
-
-        window.addEventListener("beforeunload", () => {
-            stopOrientationTracking();
-            stopCamera();
-            stopGeolocation();
+            }, 300);
         });
+    }
 
+    function startGeolocation() {
+        if (gpsStarted) return;
+        if (!navigator.geolocation) {
+            throw new Error("이 브라우저는 geolocation을 지원하지 않습니다.");
+        }
+
+        watchId = navigator.geolocation.watchPosition(
+            async (pos) => {
+                currentLon = pos.coords.longitude;
+                currentLat = pos.coords.latitude;
+                currentHeight = Number.isFinite(pos.coords.altitude) ? pos.coords.altitude : null;
+                currentAccuracy = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null;
+                hasFirstGpsFix = true;
+
+                await updateGroundHeight(false);
+                updateCoordText();
+                updateGPSChip();
+
+                if (!orientationStarted) {
+                    moveCameraToCurrentPositionOnly();
+                } else if (arMode) {
+                    applyCameraPose();
+                }
+
+                statusEl.textContent =
+                    `GPS 수신중: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}, h=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)}`;
+            },
+            (err) => {
+                console.error(err);
+                statusEl.textContent = `GPS 실패: ${err.message}`;
+                showToast("GPS 오류: " + err.message);
+            },
+            {
+                enableHighAccuracy: true,
+                maximumAge: 1000,
+                timeout: 10000
+            }
+        );
+
+        gpsStarted = true;
+    }
+
+    function stopGeolocation() {
+        if (watchId != null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+        gpsStarted = false;
+    }
+
+    function handleDeviceOrientation(event) {
+        lastAlpha = event.alpha ?? 0;
+        lastBeta = event.beta ?? 0;
+        lastGamma = event.gamma ?? 0;
+
+        const pose = computePoseFromDeviceOrientation(event);
+        rawHeadingDeg = pose.headingDeg;
+        rawPitchDeg = pose.pitchDeg;
+        rawRollDeg = pose.rollDeg;
+
+        if (currentLon == null || currentLat == null) {
+            latestHeadingDeg = rawHeadingDeg;
+            latestPitchDeg = rawPitchDeg;
+            latestRollDeg = rawRollDeg;
+            updateSensorText();
+            return;
+        }
+
+        if (arMode) {
+            applyCameraPose();
+        } else {
+            latestHeadingDeg = rawHeadingDeg;
+            latestPitchDeg = rawPitchDeg;
+            latestRollDeg = rawRollDeg;
+            updateSensorText();
+        }
+    }
+
+    async function requestiOSMotionPermissionIfNeeded() {
+        if (
+            typeof DeviceOrientationEvent !== "undefined" &&
+            typeof DeviceOrientationEvent.requestPermission === "function"
+        ) {
+            const result = await DeviceOrientationEvent.requestPermission();
+            if (result !== "granted") {
+                throw new Error("iOS 센서 권한이 거부되었습니다.");
+            }
+        }
+    }
+
+    function startOrientationTracking() {
+        if (orientationStarted) return;
+        window.addEventListener("deviceorientation", handleDeviceOrientation, true);
+        orientationStarted = true;
+    }
+
+    function stopOrientationTracking() {
+        if (!orientationStarted) return;
+        window.removeEventListener("deviceorientation", handleDeviceOrientation, true);
+        orientationStarted = false;
+    }
+
+    async function startAR() {
+        try {
+            statusEl.textContent = "권한 요청중...";
+
+            await requestiOSMotionPermissionIfNeeded();
+            startOrientationTracking();
+
+            statusEl.textContent = "현재 위치 가져오는 중...";
+            startGeolocation();
+            await waitForFirstGpsFix();
+
+            await updateGroundHeight(true);
+            await loadAllTilesets();
+
+            updateCoordText();
+            updateGPSChip();
+            applyCameraPose();
+
+            await startCamera();
+
+            arMode = true;
+            arToggleBtn.className = "ar-toggle on";
+            arToggleBtn.textContent = "AR 종료";
+            liveBadgeEl.classList.add("show");
+
+            statusEl.textContent = "AR 시작됨";
+            showToast("AR 모드 활성화");
+        } catch (e) {
+            console.error(e);
+            statusEl.textContent = `초기화 실패: ${e.message}`;
+            showToast("초기화 실패: " + e.message, 3200);
+        }
+    }
+
+    function stopAR() {
+        arMode = false;
+        stopOrientationTracking();
+        stopCamera();
+
+        arToggleBtn.className = "ar-toggle off";
+        arToggleBtn.textContent = "AR 시작";
+        liveBadgeEl.classList.remove("show");
+
+        if (currentLon != null && currentLat != null) {
+            moveCameraToCurrentPositionOnly();
+        }
+
+        statusEl.textContent = "AR 종료됨";
+        showToast("AR 모드 종료");
+    }
+
+    function captureCalibrationPose() {
+        calibratedHeading = rawHeadingDeg;
+        calibratedPitch = rawPitchDeg;
+        calibratedRoll = rawRollDeg;
+        if (arMode) applyCameraPose();
+        statusEl.textContent = "현재 자세를 기준으로 보정했습니다.";
+        showToast("현재 자세 기준 보정 완료");
+    }
+
+    function resetCalibration() {
+        calibratedHeading = 0;
+        calibratedPitch = 0;
+        calibratedRoll = 0;
+        if (arMode) applyCameraPose();
+        statusEl.textContent = "자세 보정을 초기화했습니다.";
+        showToast("보정 초기화");
+    }
+
+    headingOffsetEl.addEventListener("input", () => {
         updateOffsetLabels();
-        updateGPSChip();
-        updateSensorText();
-        updateCoordText();
-        updateTilesetText();
-    </script>
+        if (arMode) applyCameraPose();
+    });
+
+    pitchOffsetEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        if (arMode) applyCameraPose();
+    });
+
+    heightOffsetEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        if (currentLon != null && currentLat != null) {
+            if (arMode) applyCameraPose();
+            else moveCameraToCurrentPositionOnly();
+        }
+    });
+
+    tilesetHeightOffsetEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        applyTilesetHeightOffset();
+    });
+
+    fovRangeEl.addEventListener("input", () => {
+        updateOffsetLabels();
+        viewer.camera.frustum.fov = Cesium.Math.toRadians(Number(fovRangeEl.value));
+        viewer.scene.requestRender();
+    });
+
+    document.getElementById("calibrateBtn").addEventListener("click", captureCalibrationPose);
+    document.getElementById("resetCalibrateBtn").addEventListener("click", resetCalibration);
+
+    document.getElementById("gpsChip").addEventListener("click", async () => {
+        if (currentLon == null || currentLat == null) {
+            showToast("현재 위치가 아직 없습니다.");
+            return;
+        }
+        await updateGroundHeight(true);
+        if (arMode) applyCameraPose();
+        else moveCameraToCurrentPositionOnly();
+        showToast("현재 위치로 이동");
+    });
+
+    let leftPanelOpen = true;
+
+    panelToggleBtn.addEventListener("click", () => {
+        leftPanelOpen = !leftPanelOpen;
+        leftPanelBody.style.display = leftPanelOpen ? "block" : "none";
+        panelToggleBtn.textContent = leftPanelOpen ? "닫기" : "열기";
+    });
+
+    arToggleBtn.addEventListener("click", () => {
+        if (arMode) stopAR();
+        else startAR();
+    });
+
+    function dlog(msg, color = "#4ade80") {
+        const debugLogEl = document.getElementById("debugLog");
+        const t = new Date().toLocaleTimeString("ko-KR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        });
+        debugLogEl.innerHTML += `<div style="color:${color}"><span style="color:#666">[${t}]</span> ${msg}</div>`;
+        debugLogEl.scrollTop = debugLogEl.scrollHeight;
+    }
+
+    window.toggleDebug = function() {
+        const p = document.getElementById("debugPanel");
+        const open = p.style.display !== "none";
+        p.style.display = open ? "none" : "block";
+        if (!open) {
+            const ua = navigator.userAgent;
+            dlog("━━━ 환경 체크 ━━━", "#fbbf24");
+            dlog("프로토콜: " + location.protocol + (location.protocol === "https:" ? " ✓" : " ✗"), "#93c5fd");
+            dlog("기기: " + (/iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : "Desktop"), "#93c5fd");
+            dlog("mediaDevices: " + (navigator.mediaDevices ? "✓" : "✗"));
+            dlog("Geolocation: " + (navigator.geolocation ? "✓" : "✗"));
+            dlog("AR mode: " + arMode);
+            dlog("GPS started: " + gpsStarted);
+            dlog("Orientation started: " + orientationStarted);
+            dlog("Camera started: " + cameraStarted);
+            dlog("Main tileset loaded: " + (!!mainTileset));
+            dlog("Extra tilesets loaded: " + extraTilesets.length);
+            if (currentLon != null && currentLat != null) {
+                dlog(`Current pos: ${currentLat.toFixed(6)}, ${currentLon.toFixed(6)} h=${currentHeight == null ? "n/a" : currentHeight.toFixed(1)} ground=${groundHeight.toFixed(1)}`);
+            }
+        }
+    };
+
+    window.debugTestCamera = async function() {
+        dlog("카메라 테스트...", "#93c5fd");
+        try {
+            const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            const t = s.getVideoTracks()[0];
+            dlog("✓ 성공! " + JSON.stringify(t.getSettings()), "#4ade80");
+            s.getTracks().forEach(track => track.stop());
+        } catch (e) {
+            dlog("✗ " + e.name + ": " + e.message, "#f87171");
+        }
+    };
+
+    window.debugTestGPS = function() {
+        dlog("GPS 테스트...", "#4ade80");
+        navigator.geolocation.getCurrentPosition(
+            p => dlog(`✓ ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)} (±${Math.round(p.coords.accuracy)}m)`, "#4ade80"),
+            e => dlog("✗ " + e.message, "#f87171"),
+            { enableHighAccuracy: true, timeout: 8000 }
+        );
+    };
+
+    window.debugTestOrientation = async function() {
+        dlog("센서 테스트...", "#fbbf24");
+        if (typeof DeviceOrientationEvent?.requestPermission === "function") {
+            try {
+                const r = await DeviceOrientationEvent.requestPermission();
+                dlog("iOS 권한: " + r, r === "granted" ? "#4ade80" : "#f87171");
+                if (r !== "granted") return;
+            } catch (e) {
+                dlog("권한 오류: " + e.message, "#f87171");
+                return;
+            }
+        }
+
+        let cnt = 0;
+        const h = (e) => {
+            cnt++;
+            if (cnt === 1 || cnt % 20 === 0) {
+                const heading = e.webkitCompassHeading ?? ((360 - (e.alpha || 0)) % 360);
+                dlog(`#${cnt} heading=${heading.toFixed(1)} beta=${(e.beta || 0).toFixed(1)} gamma=${(e.gamma || 0).toFixed(1)}`);
+            }
+        };
+        window.addEventListener("deviceorientation", h, true);
+        setTimeout(() => {
+            window.removeEventListener("deviceorientation", h, true);
+            dlog("총 " + cnt + "개 " + (cnt > 0 ? "✓" : "✗"), cnt > 0 ? "#4ade80" : "#f87171");
+        }, 5000);
+    };
+
+    window.addEventListener("beforeunload", () => {
+        stopOrientationTracking();
+        stopCamera();
+        stopGeolocation();
+    });
+
+    updateOffsetLabels();
+    updateGPSChip();
+    updateSensorText();
+    updateCoordText();
+    updateTilesetText();
+</script>
 
 <style>
     :root {
