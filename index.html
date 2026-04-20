@@ -4,9 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Cesium AR Overlay</title>
-
-    <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
-    <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet"/>
 </head>
 <body>
 
@@ -99,8 +96,10 @@
     </div>
 </div>
 
-<script>
-    import Wind from "./wind/wind";
+<script type="module">
+    import * as Cesium from "cesium";
+    import "cesium/Build/Cesium/Widgets/widgets.css";
+    import Wind from "./wind/wind.js";
 
     Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
 
@@ -854,13 +853,17 @@
             await updateGroundHeight(true);
             await loadAllTilesets();
 
-            await loadWindLayer();
-
             updateCoordText();
             updateGPSChip();
             applyCameraPose();
 
             await startCamera();
+
+            viewer.scene.requestRender();
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            await loadWindLayer();
 
             arMode = true;
             arToggleBtn.className = "ar-toggle on";
@@ -878,12 +881,27 @@
 
     let windObject = null;
     async function loadWindLayer() {
+        const ctx = viewer.scene.context;
+        const gl = ctx?._gl;
+
+        const maxTextureSize =
+            Cesium.ContextLimits?.maximumTextureSize ??
+            gl?.getParameter?.(gl.MAX_TEXTURE_SIZE);
+
+        console.log("maxTextureSize:", maxTextureSize);
+        console.log("webgl2:", ctx?._webgl2 ?? ctx?.webgl2);
+        console.log("contextLost:", gl?.isContextLost?.());
+
+        if (!ctx || !gl || !maxTextureSize || maxTextureSize <= 0) {
+            throw new Error("WebGL context invalid");
+        }
+
         const json = await (await fetch("./wind/wind.json")).json();
 
-        windObject = new Wind(viewer, viewer.scene.context, {
+        windObject = new Wind(viewer, ctx, {
             dimension: json.dimensions,
             altitudes: json.altitudes,
-            boundary: json.boundary,
+            boundary: [100,15, 150,15, 150,55, 100,55],
             uvws: {
                 u: json.us,
                 v: json.vs,

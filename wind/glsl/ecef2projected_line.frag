@@ -9,8 +9,6 @@ uniform float altitudeBounds[2];
 uniform bool highlights[33];
 uniform sampler2D customColorTextures;
 uniform int typhoonHighlightMode;
-uniform float speedMin;
-uniform float speedMax;
 
 
 // uniform sampler2D color;
@@ -193,10 +191,6 @@ void main() {
         vec3 color;
         vec3 speed = getWindSpeedAt(normalizedPosition);
         float speedLength = length(speed);
-
-        if (speedLength < speedMin || speedLength > speedMax) {
-            discard;
-        }
 
         if(colorMode == 0) {
         // 풍속

@@ -1,17 +1,13 @@
-import * as Cesium from 'cesium'
-import ComputePrimitive from '@/modules/compute/ComputePrimitive'
-import RenderPrimitive from '@/modules/compute/RenderPrimitive'
+import * as Cesium from "cesium";
+import ComputePrimitive from '../compute/ComputePrimitive'
+import RenderPrimitive from '../compute/RenderPrimitive'
 import { LonLatAltVolume } from '../compute/Volume'
 
-import fragmentShader_calculateWindPosition from '@/modules/wind/glsl/calculateWindPosition.frag?raw'
-import vertexShader_ecef2projected_line from '@/modules/wind/glsl/ecef2projected_line.vert?raw'
-import fragmentShader_ecef2projected_line from '@/modules/wind/glsl/ecef2projected_line.frag?raw'
+import fragmentShader_calculateWindPosition from '../wind/glsl/calculateWindPosition.frag?raw'
+import vertexShader_ecef2projected_line from '../wind/glsl/ecef2projected_line.vert?raw'
+import fragmentShader_ecef2projected_line from '../wind/glsl/ecef2projected_line.frag?raw'
 
-import { kas as kasGridDef } from '@/domain/lambert_conformal_conic_grids.js'
-import fragmentShader from '@/modules/sliceplot/glsl/fragment.frag?raw'
-import fragmentShader_mono from '@/modules/sliceplot/glsl/fragment_mono_normalized.frag?raw'
-import clipping_vertexShader from '@/modules/wind/glsl/clipping_vertex.vert?raw'
-import { revokeSubFilterAndDequantization } from '@/modules/PNGFilterAlgorithms.js'
+import revokeSubFilterAndDequantization  from '../wind/PNGFilterAlgorithms.js'
 
 export default class Wind {
   static MIN_TRAIL_LENGTH = 2
@@ -33,10 +29,7 @@ export default class Wind {
           lineWidth: 1000.0,
         },
         timeScale: 3,
-        timeScaleCounter: 0, // for time scale
-
-        // KAS 모델 Lambert Conformal Coninc 프로젝션용 상수
-        lambertConformalConic: kasGridDef,
+        timeScaleCounter: 0,
       },
       options,
       {
@@ -444,12 +437,6 @@ export default class Wind {
           },
           typhoonHighlightMode: function () {
             return that.typhoonHighlightMode ?? 0;
-          },
-          speedMin() {
-            return that.speedRange[0] ?? -1.0
-          },
-          speedMax() {
-            return that.speedRange[1] ?? 100.0
           },
         }
       ),
