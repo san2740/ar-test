@@ -100,6 +100,8 @@
 </div>
 
 <script>
+    import Wind from "./wind/wind";
+
     Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
 
     // 기존 건물 타일셋
@@ -852,6 +854,8 @@
             await updateGroundHeight(true);
             await loadAllTilesets();
 
+            await loadWindLayer();
+
             updateCoordText();
             updateGPSChip();
             applyCameraPose();
@@ -870,6 +874,32 @@
             statusEl.textContent = `초기화 실패: ${e.message}`;
             showToast("초기화 실패: " + e.message, 3200);
         }
+    }
+
+    let windObject = null;
+    async function loadWindLayer() {
+        const json = await (await fetch("./wind/wind.json")).json();
+
+        windObject = new Wind(viewer, viewer.scene.context, {
+            dimension: json.dimensions,
+            altitudes: json.altitudes,
+            boundary: json.boundary,
+            uvws: {
+                u: json.us,
+                v: json.vs,
+                w: json.ws
+            },
+            valueMinMax: [json.uMinMax, json.vMinMax, json.wMinMax],
+            velocityMinMax: [0, 30],
+            textureSize: 256,
+            trailLength: 8,
+            speedFactor: 0.15,
+            colorMode: "windspeed",
+            verticalScale: 1.0,
+            alpha: 0.85
+        });
+
+        viewer.scene.primitives.add(windObject.getPrimitiveCollection());
     }
 
     function stopAR() {
