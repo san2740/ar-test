@@ -100,6 +100,7 @@
     import * as Cesium from "cesium";
     import "cesium/Build/Cesium/Widgets/widgets.css";
     import Wind from "./wind/wind.js";
+    import revokeSubFilterAndDequantization  from './wind/PNGFilterAlgorithms.js'
 
     Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0NDVmZDE1OC1hYzlhLTQzYTMtOTgzNi1kOWQxN2Q2OTc3N2QiLCJpZCI6MjE2OTMyLCJpYXQiOjE3NjY0ODM1ODd9.mRp72jy1bvm4Zxie2rZv2wNHhQUBpaDup1dC2eQFd-0";
 
@@ -905,15 +906,15 @@
             altitudes: json.altitudes,
             boundary:  json.boundaries,
             uvws: {
-                u: json.us,
-                v: json.vs,
-                w: json.ws
+                u: json.us.map(ary => revokeSubFilterAndDequantization(ary, json.uMinMax)),
+                v: json.vs.map(ary => revokeSubFilterAndDequantization(ary, json.vMinMax)),
+                w: json.ws.map(ary => revokeSubFilterAndDequantization(ary, json.wMinMax)),
             },
             valueMinMax: [json.uMinMax, json.vMinMax, json.wMinMax],
-            velocityMinMax: [0, 30],
-            textureSize: 256,
-            trailLength: 8,
-            speedFactor: 0.15,
+            velocityMinMax: json.valueMinMax,
+            textureSize: Math.round(Math.sqrt(json.dimensions[0] * json.dimensions[1])),
+            trailLength: 15,
+            speedFactor: 200.0,
             colorMode: "windspeed",
             verticalScale: 1.0,
             alpha: 0.85,
