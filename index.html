@@ -898,6 +898,8 @@
 
         const json = await (await fetch(`${import.meta.env.BASE_URL}wind/wind.json`)).json();
 
+        const allTrueIfAllFalse = json.levels.map(() => true);
+
         windObject = new Wind(viewer, ctx, {
             dimension: json.dimensions,
             altitudes: json.altitudes,
@@ -914,7 +916,8 @@
             speedFactor: 0.15,
             colorMode: "windspeed",
             verticalScale: 1.0,
-            alpha: 0.85
+            alpha: 0.85,
+            highlights: allTrueIfAllFalse,
         });
 
         viewer.scene.primitives.add(windObject.getPrimitiveCollection());
