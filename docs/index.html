@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Cesium AR Overlay</title>
+  <script type="module" crossorigin src="/ar-test/assets/index-B-YoIV-5.js"></script>
+  <link rel="stylesheet" crossorigin href="/ar-test/assets/index-B9DDZdqH.css">
+</head>
+<body>
+
+<video id="cameraVideo" autoplay playsinline muted></video>
+<div id="cesiumContainer"></div>
+
+<div id="ui">
+    <div class="top-bar">
+        <div class="live-badge" id="liveBadge"><span class="dot"></span>AR</div>
+    </div>
+
+    <div class="left-panel" id="leftPanel">
+        <div class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <h3 style="margin:0;">상태 / 보정</h3>
+                <button class="btn secondary small" id="panelToggleBtn" type="button">닫기</button>
+            </div>
+
+            <div id="leftPanelBody" style="margin-top:10px;">
+                <div class="status" id="status">초기화 대기중...</div>
+
+                <div class="row">
+                    <div class="label"><span>Heading Offset</span><span id="headingVal">0</span></div>
+                    <input id="headingOffset" type="range" min="-180" max="180" step="1" value="0" />
+                </div>
+
+                <div class="row">
+                    <div class="label"><span>Pitch Offset</span><span id="pitchVal">0</span></div>
+                    <input id="pitchOffset" type="range" min="-90" max="90" step="1" value="0" />
+                </div>
+
+                <div class="row">
+                    <div class="label"><span>Height Offset (m)</span><span id="heightVal">0</span></div>
+                    <input id="heightOffset" type="range" min="-100" max="100" step="1" value="0" />
+                </div>
+
+                <div class="row">
+                    <div class="label"><span>Tileset Height (m)</span><span id="tilesetHeightVal">0</span></div>
+                    <input id="tilesetHeightOffset" type="range" min="-150" max="150" step="1" value="0" />
+                </div>
+
+                <div class="row">
+                    <div class="label"><span>FOV</span><span id="fovVal">60</span></div>
+                    <input id="fovRange" type="range" min="35" max="100" step="1" value="60" />
+                </div>
+
+                <div class="small" id="coordText">현재 좌표: 아직 없음</div>
+                <div class="small" id="sensorText">센서값: 아직 없음</div>
+                <div class="small" id="tilesetText">타일셋: 아직 없음</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-bar">
+        <div class="chip" id="gpsChip" style="cursor:pointer;">
+            <div class="chip-row"><span class="chip-label">위도</span><span id="latEl">—</span></div>
+            <div class="chip-row"><span class="chip-label">경도</span><span id="lonEl">—</span></div>
+            <div class="chip-row"><span class="chip-label">정확도</span><span id="accEl">—</span></div>
+        </div>
+
+        <button class="ar-toggle off" id="arToggleBtn">AR 시작</button>
+
+        <div class="compass-wrap">
+            <div class="compass">
+                <span class="compass-n">N</span>
+                <div class="needle" id="compassNeedle"></div>
+            </div>
+            <span class="deg" id="headEl">—°</span>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="debugTab">
+    <button onclick="toggleDebug()">DEBUG</button>
+</div>
+
+<div class="debug-panel" id="debugPanel">
+    <div class="debug-head">
+        <span class="debug-head-title">AR 디버그</span>
+        <button onclick="toggleDebug()">닫기</button>
+    </div>
+    <div id="debugLog"></div>
+    <div class="debug-actions">
+        <button onclick="debugTestCamera()">카메라</button>
+        <button onclick="debugTestGPS()">GPS</button>
+        <button onclick="debugTestOrientation()">센서</button>
+        <button onclick="document.getElementById('debugLog').innerHTML=''">지우기</button>
+    </div>
+</div>
+
+
+<style>
+    :root {
+        --accent: #2d7ef7;
+        --danger: #d74c4c;
+        --ok: #22c55e;
+        --warn: #f59e0b;
+        --glass: rgba(0,0,0,0.55);
+        --glass-2: rgba(255,255,255,0.08);
+        --border: rgba(255,255,255,0.15);
+        --text: #fff;
+        --muted: rgba(255,255,255,0.75);
+    }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        font-family: sans-serif;
+    }
+
+    #cameraVideo {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background: #000;
+        z-index: 0;
+        display: none;
+    }
+
+    #cesiumContainer {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        background: transparent !important;
+    }
+
+    #cesiumContainer canvas {
+        background: transparent !important;
+    }
+
+    #ui {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        pointer-events: none;
+    }
+
+    .panel, .btn, .chip, .toast, .debug-panel {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .top-bar {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        pointer-events: auto;
+    }
+
+    .live-badge {
+        display: none;
+        align-items: center;
+        gap: 6px;
+        background: rgba(45,126,247,0.9);
+        border-radius: 999px;
+        padding: 10px 14px;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .live-badge.show {
+        display: inline-flex;
+    }
+
+    .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #fff;
+        animation: blink 1.2s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+        0%,100% { opacity: 1; }
+        50% { opacity: 0.35; }
+    }
+
+    .left-panel {
+        position: absolute;
+        left: 12px;
+        top: 62px;
+        width: 320px;
+        max-width: calc(100vw - 24px);
+        max-height: calc(100vh - 160px);
+        overflow-y: auto;
+        pointer-events: auto;
+    }
+
+    .panel {
+        background: var(--glass);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 12px;
+        margin-bottom: 10px;
+    }
+
+    .panel h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+    }
+
+    .status {
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 8px;
+        line-height: 1.45;
+        word-break: break-word;
+    }
+
+    .row {
+        margin-top: 10px;
+    }
+
+    .label {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    .btn {
+        width: 100%;
+        border: none;
+        border-radius: 10px;
+        padding: 11px 12px;
+        margin-top: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 700;
+        background: var(--accent);
+        color: #fff;
+    }
+
+    .btn.secondary {
+        background: #555;
+    }
+
+    .btn.danger {
+        background: var(--danger);
+    }
+
+    .btn.success {
+        background: var(--ok);
+    }
+
+    .btn.small {
+        width: auto;
+        padding: 8px 10px;
+        font-size: 12px;
+        margin-top: 0;
+    }
+
+    input[type="range"],
+    input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    input[type="text"] {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+
+    input[type="range"] {
+        accent-color: var(--accent);
+    }
+
+    .small {
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--muted);
+        word-break: break-all;
+        line-height: 1.45;
+    }
+
+    .hint {
+        margin-top: 4px;
+        font-size: 11px;
+        color: rgba(255,255,255,0.68);
+        line-height: 1.4;
+    }
+
+    .hstack {
+        display: flex;
+        gap: 8px;
+    }
+
+    .hstack .btn {
+        flex: 1;
+    }
+
+    .bottom-bar {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 12px;
+        pointer-events: auto;
+    }
+
+    .chip {
+        background: var(--glass);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 10px 12px;
+        min-width: 130px;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .chip-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .chip-label {
+        color: var(--muted);
+    }
+
+    .acc-good { color: #4ade80; }
+    .acc-ok   { color: #fbbf24; }
+    .acc-bad  { color: #f87171; }
+
+    .ar-toggle {
+        border: none;
+        border-radius: 999px;
+        padding: 14px 18px;
+        font-size: 15px;
+        font-weight: 800;
+        cursor: pointer;
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 6px 20px rgba(45,126,247,0.35);
+        min-width: 180px;
+    }
+
+    .ar-toggle.off {
+        background: var(--accent);
+    }
+
+    .ar-toggle.on {
+        background: var(--danger);
+        box-shadow: 0 6px 20px rgba(215,76,76,0.35);
+    }
+
+    .compass-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .compass {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--glass);
+        border: 1px solid var(--border);
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .compass-n {
+        position: absolute;
+        top: 6px;
+        font-size: 9px;
+        font-weight: 800;
+        color: #f87171;
+    }
+
+    .needle {
+        width: 2px;
+        height: 20px;
+        position: absolute;
+        left: calc(50% - 1px);
+        bottom: 50%;
+        transform-origin: bottom center;
+        border-radius: 2px;
+        background: linear-gradient(to top, rgba(255,255,255,0.25) 50%, #f87171 50%);
+    }
+
+    .deg {
+        font-size: 11px;
+        color: var(--muted);
+    }
+
+    .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 88px;
+        transform: translateX(-50%) translateY(12px);
+        background: rgba(10,18,40,0.92);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 12px;
+        padding: 11px 16px;
+        z-index: 200;
+        font-size: 13px;
+        opacity: 0;
+        transition: opacity 0.2s, transform 0.2s;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+
+    .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    #debugTab {
+        position: fixed;
+        top: 50%;
+        right: 0;
+        transform: translateY(-50%);
+        z-index: 300;
+        pointer-events: auto;
+    }
+
+    #debugTab button {
+        background: rgba(251,191,36,0.9);
+        border: none;
+        color: #000;
+        font-size: 10px;
+        font-weight: 800;
+        padding: 6px 8px;
+        border-radius: 6px 0 0 6px;
+        cursor: pointer;
+        writing-mode: vertical-rl;
+        letter-spacing: 1px;
+    }
+
+    .debug-panel {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 299;
+        background: rgba(0,0,0,0.92);
+        color: #4ade80;
+        padding: 56px 14px 14px;
+        overflow-y: auto;
+        pointer-events: auto;
+        font-family: monospace;
+        font-size: 11px;
+        line-height: 1.8;
+    }
+
+    .debug-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .debug-head-title {
+        color: #fbbf24;
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+    .debug-head button,
+    .debug-actions button {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.18);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 11px;
+    }
+
+    .debug-actions {
+        margin-top: 14px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 768px) {
+        .left-panel {
+            width: 280px;
+            max-width: calc(100vw - 24px);
+            max-height: 42vh;
+        }
+
+        .bottom-bar {
+            align-items: center;
+        }
+
+        .ar-toggle {
+            min-width: 150px;
+        }
+    }
+</style>
+</body>
+</html>
