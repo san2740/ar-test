@@ -108,14 +108,14 @@
 
     // 추가할 로컬 나무 타일셋들
     const EXTRA_TILESET_URLS = [
-        "./roadsidetreetileset/epopnamu-lowpoly-v1/tileset.json",
-        "./roadsidetreetileset/ginko-lowpoly-v7/tileset.json",
-        "./roadsidetreetileset/maple-lowpoly-v1/tileset.json",
-        "./roadsidetreetileset/metasequoia-lowpoly-v1/tileset.json",
-        "./roadsidetreetileset/neutinamu-lowpoly-v1/tileset.json",
-        "./roadsidetreetileset/pinetree-lowpoly-v1/tileset.json",
-        "./roadsidetreetileset/sakura-lowpoly-v4/tileset.json",
-        "./roadsidetreetileset/verjum-lowpoly-v1/tileset.json"
+        `${import.meta.env.BASE_URL}roadsidetreetileset/epopnamu-lowpoly-v1/tileset.json`,
+        `${import.meta.env.BASE_URL}roadsidetreetileset/ginko-lowpoly-v7/tileset.json`,
+        `${import.meta.env.BASE_URL}roadsidetreetileset/maple-lowpoly-v1/tileset.json`,
+        `${import.meta.env.BASE_URL}roadsidetreetileset/metasequoia-lowpoly-v1/tileset.json`,
+        `${import.meta.env.BASE_URL}roadsidetreetileset/neutinamu-lowpoly-v1/tileset.json`,
+        `${import.meta.env.BASE_URL}roadsidetreetileset/pinetree-lowpoly-v1/tileset.json`,
+        `${import.meta.env.BASE_URL}roadsidetreetileset/sakura-lowpoly-v4/tileset.json`,
+        `${import.meta.env.BASE_URL}roadsidetreetileset/verjum-lowpoly-v1/tileset.json`
     ];
 
     const eyeHeightMeters = 1.6;
@@ -896,7 +896,7 @@
             throw new Error("WebGL context invalid");
         }
 
-        const json = await (await fetch("./wind/wind.json")).json();
+        const json = await (await fetch(`${import.meta.env.BASE_URL}wind/wind.json`)).json();
 
         windObject = new Wind(viewer, ctx, {
             dimension: json.dimensions,
