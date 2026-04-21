@@ -58,6 +58,7 @@ export default class Wind {
       valueMinMax,
       velocityMinMax,
       wens,
+       highlights,
     } = this
 
     const volume = new LonLatAltVolume(boundary, [altitudes[0], altitudes[altitudes.length - 1]])
