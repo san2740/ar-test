@@ -1,5 +1,8 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
-    base: "/ar-test/"
+    base: "/ar-test/",
+    build: {
+        outDir: "docs"
+    }
 });
