@@ -1002,7 +1002,7 @@
         debugLogEl.scrollTop = debugLogEl.scrollHeight;
     }
 
-    window.toggleDebug = function() {
+    function toggleDebug() {
         const p = document.getElementById("debugPanel");
         const open = p.style.display !== "none";
         p.style.display = open ? "none" : "block";
